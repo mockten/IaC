@@ -52,11 +52,30 @@ variable "kiali_dns_name" {
     default = "www.kiali.mockten.net."
 }
 
+### varialbe param(NW)
+variable "ip_cidr_range" {
+    default = "192.168.1.0/24"
+}
+variable "vpc_region" {
+    default = "us-east1"
+}
 
 ### varialbe param(k8s)
 variable "k8s_location" {
     default = "us-east1"
 }
-variable "vpc_region" {
-    default = "us-east1"
+variable "k8s_cluster_cidr" {
+    default = "10.28.0.0/14"
+}
+variable "k8s_master_cidr" {
+    default = "192.168.100.0/28"
+}
+variable "maintenance_start_time" {
+    default = "2023-06-14T17:00:00Z"
+}
+variable "maintenance_end_time" {
+    default = "2024-06-14T21:00:00Z"
+}
+variable "maintenance_recurrence" {
+    default = "FREQ=WEEKLY;BYDAY=FR,SA,SU"
 }

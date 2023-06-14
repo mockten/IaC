@@ -68,8 +68,20 @@ module "dns" {
   kiali_dns_name          = var.kiali_dns_name
 }
 
+module "nw" {
+  source        = "./nw"
+  ip_cidr_range = var.ip_cidr_range
+  vpc_region    = var.vpc_region
+}
+
 module "k8s" {
-  source       = "./k8s"
-  k8s_location = var.k8s_location
-  vpc_region   = var.vpc_region
+  source                 = "./k8s"
+  k8s_location           = var.k8s_location
+  k8s_cluster_cidr       = var.k8s_cluster_cidr
+  k8s_master_cidr        = var.k8s_master_cidr
+  maintenance_start_time = var.maintenance_start_time
+  maintenance_end_time   = var.maintenance_end_time
+  maintenance_recurrence = var.maintenance_recurrence
+  vpc_self_link          = module.nw.vpc_self_link
+  subnet_self_link       = module.nw.subnet_self_link
 }
