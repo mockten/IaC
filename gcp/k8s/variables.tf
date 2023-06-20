@@ -30,3 +30,8 @@ variable "maintenance_recurrence" {
     type        = string
     default     = null
 }
+
+variable "master_authorized_permit_cidr" {
+    type        = string
+    default     = null
+}
