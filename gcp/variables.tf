@@ -83,6 +83,5 @@ variable "maintenance_recurrence" {
     default = "FREQ=WEEKLY;BYDAY=FR,SA,SU"
 }
 variable "master_authorized_permit_cidr" {
-    default     = "0.0.0.0/0"
-    #default     = "192.0.2.127/32"
+    default     = "192.0.2.127/32"
 }
