@@ -14,6 +14,10 @@ variable "k8s_cluster_cidr" {
     type        = string
     default     = null
 }
+variable "k8s_service_cidr" {
+    type        = string
+    default     = null
+}
 variable "k8s_master_cidr" {
     type        = string
     default     = null
