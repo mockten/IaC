@@ -19,11 +19,17 @@ variable "mockten_mysql_disk_size" {
 variable "mockten_redis_disk_size" {
     default = 30
 }
+variable "mockten_static_file_disk_size" {
+    default = 5
+}
 variable "dev_mysql_disk_size" {
     default = 20
 }
 variable "dev_redis_disk_size" {
     default = 30
+}
+variable "dev_static_file_disk_size" {
+    default = 5
 }
 
 ### varialbe param(Dns) Please insert the preferred domain for you.
