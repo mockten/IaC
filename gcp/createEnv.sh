@@ -30,22 +30,13 @@ gcloud services enable cloudfunctions.googleapis.com
 gcloud services enable cloudscheduler.googleapis.com
 gcloud services enable deploymentmanager.googleapis.com
 
-# UPLOAD CloudFunction Code to Storage
+# Create Storage for Terraform state management.
 gsutil mb gs://${BUCKET_NAME}
 
-# INSERT NEW PROJECT-ID INTO CDM FILE ######
+# REPLACE NEW PROJECT-ID INTO with dummy one from the terraform template file.
 sed -i -e 's/PROJECT_ID/'${PROJECT_ID}'/g' main.tf
 sed -i -e 's/PROJECT_ID/'${PROJECT_ID}'/g' variables.tf
 
 # BUILD INFRASTRUCTURE
 terraform init
 terraform apply -auto-approve
-
-### CREATE SSL Certification
-#gcloud compute ssl-certificates create mockten-prd-ssl --domains="www.mockten.net" --global
-#gcloud compute ssl-certificates create prometheus-prd-ssl --domains="www.prometheus.mockten.net" --global
-#gcloud compute ssl-certificates create grafana-prd-ssl --domains="www.monitoring.mockten.net" --global
-#gcloud compute ssl-certificates create mockten-dev-ssl --domains="www.dev.mockten.net" --global
-#gcloud compute ssl-certificates create prometheus-dev-ssl --domains="www.devprometheus.mockten.net" --global
-#gcloud compute ssl-certificates create grafana-dev-ssl --domains="www.devmonitoring.mockten.net" --global
-#gcloud compute ssl-certificates create kiali-dev-ssl --domains="www.kiali.mockten.net" --global
