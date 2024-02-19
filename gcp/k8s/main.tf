@@ -4,7 +4,7 @@ resource "google_container_cluster" "mockten_k8s_cluster" {
   location = var.k8s_location
   network    = var.vpc_self_link
   subnetwork = var.subnet_self_link
-  
+  deletion_protection = false  
   release_channel {
     channel = "STABLE"
   }
