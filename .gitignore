@@ -3,3 +3,4 @@ local/.terraform/
 aws/.terraform/
 gcp/.terraform/
 azure/.terraform/
+common/common.tfvars
