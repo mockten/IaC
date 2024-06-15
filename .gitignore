@@ -1,10 +1,7 @@
 .terraform/
-local/.terraform/
-aws/.terraform/
-gcp/.terraform/
-azure/.terraform/
+*/.terraform/
 common/common.tfvars
-local/local.tfvars
-local/.terraform*
-local/terraform*
-local/*.tfstate
+*/local.tfvars
+*/.terraform*
+*/terraform*
+*/*.tfstate
