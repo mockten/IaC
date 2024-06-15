@@ -29,7 +29,6 @@ resource "kubernetes_deployment" "uam" {
           volume_mount {
             name       = "realm-config"
             mount_path = "/opt/keycloak/data/import"
-            sub_path   = "realm-export.json"
           }
         }
         volume {
@@ -42,7 +41,7 @@ resource "kubernetes_deployment" "uam" {
               path = "realm-export.json"
             }
           }
-        }  
+        }
       }
     }
   }
