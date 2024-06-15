@@ -26,7 +26,23 @@ resource "kubernetes_deployment" "uam" {
           port {
             container_port = 80
           }
+          volume_mount {
+            name       = "realm-config"
+            mount_path = "/opt/keycloak/data/import"
+            sub_path   = "realm-export.json"
+          }
         }
+        volume {
+          name = "realm-config"
+
+          config_map {
+            name = kubernetes_config_map.mockten_realm.metadata[0].name
+            items {
+              key  = "realm-export.json"
+              path = "realm-export.json"
+            }
+          }
+        }  
       }
     }
   }
