@@ -6,4 +6,5 @@ azure/.terraform/
 common/common.tfvars
 local/local.tfvars
 local/.terraform*
+local/terraform*
 local/*.tfstate
