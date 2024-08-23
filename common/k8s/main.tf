@@ -23,3 +23,8 @@ module "uam" {
   source = "./uam"
   secret_name = kubernetes_secret.ghcr.metadata[0].name
 }
+
+module "apigw" {
+  source = "./apigw"
+  secret_name = kubernetes_secret.ghcr.metadata[0].name
+}

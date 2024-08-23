@@ -1,19 +1,19 @@
-resource "kubernetes_deployment" "ecfront" {
+resource "kubernetes_deployment" "apigw" {
   metadata {
-    name = "ecfront-deploy"
+    name = "apigw-deploy"
     namespace = "default"
   }
   spec {
     replicas = 1
     selector {
       match_labels = {
-        app = "ecfront"
+        app = "apigw"
       }
     }
     template {
       metadata {
         labels = {
-          app = "ecfront"
+          app = "apigw"
         }
       }
       spec {
@@ -21,8 +21,8 @@ resource "kubernetes_deployment" "ecfront" {
           name = var.secret_name
         }
         container {
-          name  = "ecfront"
-          image = "ghcr.io/mockten/mockten/ecfront:latest"
+          name  = "apigw"
+          image = "ghcr.io/mockten/mockten/apigw:latest"
           port {
             container_port = 80
           }
@@ -31,19 +31,19 @@ resource "kubernetes_deployment" "ecfront" {
     }
   }
 }
-resource "kubernetes_service" "ecfront" {
+resource "kubernetes_service" "apigw" {
   metadata {
-    name      = "ecfront-service"
+    name      = "apigw-service"
     namespace = "default"
   }
   spec {
     selector = {
-      app = "ecfront"
+      app = "apigw"
     }
     port {
       name        = "http"
       port        = 80
-      target_port = 80
+      target_port = 8082
     }
   }
 }

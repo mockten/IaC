@@ -17,7 +17,6 @@ resource "kubernetes_persistent_volume" "local" {
   }
 }
 
-
 resource "kubernetes_persistent_volume_claim" "local" {
   metadata {
     name = "local-pvc"
@@ -53,6 +52,7 @@ resource "kubernetes_pod" "local" {
     }
   }
 }
+
 resource "kubernetes_namespace" "ingress_nginx" {
   metadata {
     name = "ingress-nginx"
@@ -218,7 +218,6 @@ resource "kubernetes_ingress_v1" "ecfront" {
     name = "ecfront-ingress"
     namespace = "default"
     annotations = {
-      "nginx.ingress.kubernetes.io/rewrite-target" = "/"
     }
   }
   spec {
@@ -227,8 +226,18 @@ resource "kubernetes_ingress_v1" "ecfront" {
       host = "localhost"
       http {
         path {
+          path = "/api/"
+          backend {
+            service {
+              name = "apigw-service"
+              port {
+                number = 80
+              }
+            }
+          }
+        }
+        path {
           path = "/"
-          path_type = "Prefix"
           backend {
             service {
               name = "ecfront-service"
@@ -237,7 +246,7 @@ resource "kubernetes_ingress_v1" "ecfront" {
               }
             }
           }
-        }
+        }                
       }
     }
   }
