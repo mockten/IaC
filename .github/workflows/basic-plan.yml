@@ -45,11 +45,11 @@ jobs:
         echo "github_token    = \"${{ secrets.GT_TOKEN }}\"" >> temp.tfvars
         echo "github_email    = \"${{ secrets.GT_EMAIL }}\"" >> temp.tfvars
 
-    - name: Initialize Terraform for IaC/azure
+    - name: Initialize Terraform for local
       working-directory: local
       run: 
         terraform init
 
-    - name: Terraform Plan for IaC/azure
-      working-directory: IaC/azure
+    - name: Terraform Plan for local
+      working-directory: local
       run: terraform plan -var-file="../temp.tfvars"
