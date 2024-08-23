@@ -1,4 +1,4 @@
-name: Terraform Plan on Minikube
+name: DryRun(minikube)
 
 on:
   push:
@@ -43,7 +43,6 @@ jobs:
         echo "github_username = \"${{ secrets.GH_USERNAME }}\"" > temp.tfvars
         echo "github_token    = \"${{ secrets.GT_TOKEN }}\"" >> temp.tfvars
         echo "github_email    = \"${{ secrets.GT_EMAIL }}\"" >> temp.tfvars
-        cat temp.tfvars
 
     - name: Initialize Terraform for local
       working-directory: local
