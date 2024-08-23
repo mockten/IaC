@@ -6,9 +6,8 @@ on:
       - '**'
 
 jobs:
-  basic-plan:
+  dry-run:
     runs-on: ubuntu-latest
-
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
@@ -44,6 +43,7 @@ jobs:
         echo "github_username = \"${{ secrets.GH_USERNAME }}\"" > temp.tfvars
         echo "github_token    = \"${{ secrets.GT_TOKEN }}\"" >> temp.tfvars
         echo "github_email    = \"${{ secrets.GT_EMAIL }}\"" >> temp.tfvars
+        cat temp.tfvars
 
     - name: Initialize Terraform for local
       working-directory: local
