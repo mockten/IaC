@@ -20,3 +20,4 @@ To build infrastructure locally, follow these steps:
     cd local
     terraform apply -var-file="local.tfvars"
     ```
+[![Terraform Plan on Minikube](https://github.com/mockten/IaC/actions/workflows/basic-plan.yml/badge.svg)](https://github.com/mockten/IaC/actions/workflows/basic-plan.yml)
