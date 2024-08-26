@@ -1,0 +1,54 @@
+name: DryRun(minikube)
+
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  dry-run:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: 1.9.5
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y apt-transport-https ca-certificates curl
+
+    - name: Install Docker
+      run: |
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+        sudo apt-get update
+        sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+
+    - name: Install Minikube
+      run: |
+        curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+        sudo install minikube-linux-amd64 /usr/local/bin/minikube
+
+    - name: Start Minikube
+      run: |
+        minikube start --driver=docker
+
+    - name: Create temporary tfvars file
+      run: |
+        echo "github_username = \"${{ secrets.GH_USERNAME }}\"" > temp.tfvars
+        echo "github_token    = \"${{ secrets.GT_TOKEN }}\"" >> temp.tfvars
+        echo "github_email    = \"${{ secrets.GT_EMAIL }}\"" >> temp.tfvars
+
+    - name: Initialize Terraform for local
+      working-directory: local
+      run: 
+        terraform init
+
+    - name: Terraform Plan for local
+      working-directory: local
+      run: terraform plan -var-file="../temp.tfvars"
