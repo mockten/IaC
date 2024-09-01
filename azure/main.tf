@@ -17,5 +17,12 @@ terraform {
 provider "azurerm" {
   features {}
   alias   = "azure"
-  subscription_id = "aeff0ece-6773-403f-8ddc-ad0b0f4dd179"
+}
+
+module "nw" {
+  source        = "./nw"
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  vnet_cidr           = var.vnet_cidr
+  pub_subnet_a_cidr   = var.pub_subnet_a_cidr
 }

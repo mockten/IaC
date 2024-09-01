@@ -1,0 +1,40 @@
+name: DryRun(Azure)
+
+on:
+  workflow_run:
+    workflows: ["DryRun(minikube)"]
+    types:
+      - completed
+
+jobs:
+  terraform:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: 1.9.5
+
+    - name: Azure CLI Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Set up Terraform variables
+      run: |
+        echo "github_username = \"${{ secrets.GITHUB_USERNAME }}\"" > temp.tfvars
+        echo "github_token    = \"${{ secrets.GITHUB_TOKEN }}\"" >> temp.tfvars
+        echo "github_email    = \"${{ secrets.GITHUB_EMAIL }}\"" >> temp.tfvars
+
+    - name: Initialize Terraform for Azure
+      working-directory: IaC/azure
+      run: terraform init -var-file="../temp.tfvars"
+
+    - name: Terraform Plan for Azure
+      working-directory: IaC/azure
+      run: terraform plan -var-file="../temp.tfvars"
