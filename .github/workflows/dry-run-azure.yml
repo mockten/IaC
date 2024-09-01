@@ -5,6 +5,8 @@ on:
     workflows: ["DryRun(minikube)"]
     types:
       - completed
+    branches:
+      - '*'
 
 jobs:
   dry-run:
