@@ -28,9 +28,9 @@ jobs:
         echo "github_email    = \"${{ secrets.GITHUB_EMAIL }}\"" >> temp.tfvars
 
     - name: Initialize Terraform for Azure
-      working-directory: IaC/azure
+      working-directory: azure
       run: terraform init -var-file="../temp.tfvars"
 
     - name: Terraform Plan for Azure
-      working-directory: IaC/azure
+      working-directory: azure
       run: terraform plan -var-file="../temp.tfvars"
