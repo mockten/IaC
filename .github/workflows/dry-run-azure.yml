@@ -1,13 +1,9 @@
 name: DryRun(Azure)
 
 on:
-  workflow_run:
-    workflows: ["DryRun(minikube)"]
-    types:
-      - completed
+  push:
     branches:
-      - '*'
-
+      - '**'
 jobs:
   dry-run:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
