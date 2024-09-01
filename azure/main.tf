@@ -24,5 +24,5 @@ module "nw" {
   resource_group_name = var.resource_group_name
   location            = var.location
   vnet_cidr           = var.vnet_cidr
-  pub_subnet_a_cidr   = var.pub_subnet_a_cidr
+  mockten_pub_subnet1_cidr   = var.mockten_pub_subnet1_cidr
 }

@@ -10,7 +10,7 @@ variable "vnet_cidr" {
     type        = string
     default     = null
 }
-variable "pub_subnet_a_cidr" {
+variable "mockten_pub_subnet1_cidr" {
     type        = string
     default     = null
 }
