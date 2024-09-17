@@ -26,6 +26,10 @@ jobs:
         echo "github_token    = \"${{ secrets.GITHUB_TOKEN }}\"" >> temp.tfvars
         echo "github_email    = \"${{ secrets.GITHUB_EMAIL }}\"" >> temp.tfvars
 
+    - name: Initialize Terraform for Azure
+      working-directory: azure
+      run: terraform init -var-file="../temp.tfvars"
+      
     - name: Terraform Apply for Azure
       working-directory: azure
       run: terraform apply -var-file="../temp.tfvars" -auto-approve
