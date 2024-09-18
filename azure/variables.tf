@@ -62,6 +62,16 @@ variable "vnet_cidr" {
 variable "mockten_pub_subnet1_cidr" {
     default = "10.0.1.0/24"
 }
+variable "mockten_pub_subnet2_cidr" {
+    default = "10.0.2.0/24"
+}
+variable "mockten_pri_subnet1_cidr" {
+    default = "10.0.3.0/24"
+}
+variable "mockten_pri_subnet2_cidr" {
+    default = "10.0.4.0/24"
+}
+
 ### varialbe param(k8s)
 #variable "k8s_location" {
 #    default = "us-east1"
