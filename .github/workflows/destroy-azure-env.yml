@@ -2,7 +2,11 @@ name: Destroy(Azure)
 
 on:
   workflow_dispatch:
-
+  schedule:
+    - cron: '0 16 * * *'
+    - cron: '0 22 * * *'
+    - cron: '0 4 * * *'
+    - cron: '0 8 * * *'
 jobs:
   destroy:
     runs-on: ubuntu-latest
