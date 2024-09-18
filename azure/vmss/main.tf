@@ -12,6 +12,7 @@ resource "azurerm_virtual_machine_scale_set" "mockten_vmss" {
 
   network_profile {
     name    = "mockten-network-profile"
+    primary = true
     ip_configuration {
       name      = "internal"
       primary   = true
