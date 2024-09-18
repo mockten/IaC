@@ -1,4 +1,4 @@
-resource "azurerm_network_security_group" "example" {
+resource "azurerm_network_security_group" "mockten_app_nsg" {
   name                = "mockten-app-nsg"
   resource_group_name = var.resource_group_name
   location            = var.location
