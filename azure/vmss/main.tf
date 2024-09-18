@@ -3,7 +3,7 @@ resource "azurerm_virtual_machine_scale_set" "mockten_vmss" {
   location            = var.location
   resource_group_name = var.resource_group_name
   sku {
-    name     = "B2ats_v2"
+    name     = "Standard_B2ats_v2"
     tier     = "Standard"
     capacity = 1
   }
