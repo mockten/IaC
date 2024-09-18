@@ -33,3 +33,14 @@ module "nw" {
     azurerm = azurerm.azure
   }
 }
+
+module "fw" {
+  source        = "./fw"
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  vnet_cidr           = var.vnet_cidr
+
+  providers = {
+    azurerm = azurerm.azure
+  }
+}
