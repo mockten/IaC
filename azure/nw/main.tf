@@ -31,3 +31,8 @@ resource "azurerm_subnet" "mockten_pri_subnet2" {
   virtual_network_name = azurerm_virtual_network.mockten_vnet.name
   address_prefixes     = [var.mockten_pri_subnet2_cidr]
 }
+
+resource "azurerm_subnet_network_security_group_association" "app-subnet-nsg-association" {
+  subnet_id                 = azurerm_subnet.mockten_pri_subnet1.id
+  network_security_group_id = azurerm_network_security_group.mockten_app_nsg.id
+}
