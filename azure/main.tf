@@ -25,6 +25,10 @@ module "nw" {
   location            = var.location
   vnet_cidr           = var.vnet_cidr
   mockten_pub_subnet1_cidr   = var.mockten_pub_subnet1_cidr
+  mockten_pub_subnet2_cidr   = var.mockten_pub_subnet2_cidr
+  mockten_pri_subnet1_cidr   = var.mockten_pri_subnet1_cidr
+  mockten_pri_subnet2_cidr   = var.mockten_pri_subnet2_cidr
+
   providers = {
     azurerm = azurerm.azure
   }
