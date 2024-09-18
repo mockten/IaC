@@ -14,3 +14,15 @@ variable "mockten_pub_subnet1_cidr" {
     type        = string
     default     = null
 }
+variable "mockten_pub_subnet2_cidr" {
+    type        = string
+    default     = null
+}
+variable "mockten_pri_subnet1_cidr" {
+    type        = string
+    default     = null
+}
+variable "mockten_pri_subnet2_cidr" {
+    type        = string
+    default     = null
+}
