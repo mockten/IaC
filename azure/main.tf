@@ -28,6 +28,7 @@ module "nw" {
   mockten_pub_subnet2_cidr   = var.mockten_pub_subnet2_cidr
   mockten_pri_subnet1_cidr   = var.mockten_pri_subnet1_cidr
   mockten_pri_subnet2_cidr   = var.mockten_pri_subnet2_cidr
+  nsg_id              = module.fw.nsg_id
 
   providers = {
     azurerm = azurerm.azure
