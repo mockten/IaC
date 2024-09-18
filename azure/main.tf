@@ -45,3 +45,14 @@ module "fw" {
     azurerm = azurerm.azure
   }
 }
+
+module "vmss" {
+  source        = "./vmss"
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  mockten_pri_subnet1 = module.nw.mockten_pri_subnet1
+
+  providers = {
+    azurerm = azurerm.azure
+  }
+}
