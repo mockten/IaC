@@ -13,3 +13,21 @@ resource "azurerm_subnet" "mockten_pub_subnet1" {
   virtual_network_name = azurerm_virtual_network.mockten_vnet.name
   address_prefixes     = [var.mockten_pub_subnet1_cidr]
 }
+resource "azurerm_subnet" "mockten_pub_subnet2" {
+  name                 = "mockten-subnet-public2"
+  resource_group_name  = var.resource_group_name
+  virtual_network_name = azurerm_virtual_network.mockten_vnet.name
+  address_prefixes     = [var.mockten_pub_subnet2_cidr]
+}
+resource "azurerm_subnet" "mockten_pri_subnet1" {
+  name                 = "mockten-subnet-private1"
+  resource_group_name  = var.resource_group_name
+  virtual_network_name = azurerm_virtual_network.mockten_vnet.name
+  address_prefixes     = [var.mockten_pri_subnet1_cidr]
+}
+resource "azurerm_subnet" "mockten_pri_subnet2" {
+  name                 = "mockten-subnet-private2"
+  resource_group_name  = var.resource_group_name
+  virtual_network_name = azurerm_virtual_network.mockten_vnet.name
+  address_prefixes     = [var.mockten_pri_subnet2_cidr]
+}
