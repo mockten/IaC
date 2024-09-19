@@ -3,9 +3,9 @@ resource "azurerm_virtual_machine_scale_set" "mockten_vmss" {
   location            = var.location
   resource_group_name = var.resource_group_name
   sku {
-    name     = "Standard_B2ats_v2"
-    tier     = "Standard"
-    capacity = 1
+    name     = var.vmss_sku
+    tier     = var.vmss_tier
+    capacity = var.vmss_capacity
   }
   
   upgrade_policy_mode = "Manual"
@@ -22,8 +22,8 @@ resource "azurerm_virtual_machine_scale_set" "mockten_vmss" {
 
   os_profile {
     computer_name_prefix = "vmss"
-    admin_username       = "azureuser"
-    admin_password       = "P@ssw0rd1234!"
+    admin_username       = var.admin_username
+    admin_password       = var.admin_password
   }
 
   storage_profile_os_disk {
@@ -36,14 +36,14 @@ resource "azurerm_virtual_machine_scale_set" "mockten_vmss" {
     lun               = 0
     caching           = "ReadWrite"
     create_option     = "Empty"
-    disk_size_gb      = 64
-    managed_disk_type = "StandardSSD_LRS"
+    disk_size_gb      = var.data_disk_size_gb
+    managed_disk_type = var.managed_disk_type
   }
 
   storage_profile_image_reference {
-    publisher = "Canonical"
-    offer     = "UbuntuServer"
-    sku       = "18.04-LTS"
-    version   = "latest"
+    publisher = var.os_image_publisher
+    offer     = var.os_image_offer
+    sku       = var.os_image_sku
+    version   = var.os_image_version
   }
 }
