@@ -29,8 +29,7 @@ resource "azurerm_virtual_machine_scale_set" "mockten_vmss" {
   storage_profile_os_disk {
     caching           = "ReadWrite"
     create_option     = "FromImage"
-    managed_disk_type    = "StandardSSD_LRS"
-    disk_size_gb         = 64
+    managed_disk_type = "StandardSSD_LRS"
   }
 
   storage_profile_image_reference {
