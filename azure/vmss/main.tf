@@ -5,7 +5,7 @@ resource "azurerm_virtual_machine_scale_set" "mockten_vmss" {
   sku {
     name     = "Standard_B2ats_v2"
     tier     = "Standard"
-    capacity = 1
+    capacity = 2
   }
   
   upgrade_policy_mode = "Manual"
@@ -29,7 +29,8 @@ resource "azurerm_virtual_machine_scale_set" "mockten_vmss" {
   storage_profile_os_disk {
     caching           = "ReadWrite"
     create_option     = "FromImage"
-    managed_disk_type = "Standard_LRS"
+    managed_disk_type    = "StandardSSD_LRS"
+    disk_size_gb         = 64
   }
 
   storage_profile_image_reference {
