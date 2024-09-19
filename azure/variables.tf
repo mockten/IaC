@@ -6,6 +6,88 @@ variable "location" {
     default =  "japaneast"
 }
 
+### varialbe param(NW)
+variable "vnet_cidr" {
+  default = "10.0.0.0/16"
+}
+variable "mockten_pub_subnet1_cidr" {
+    default = "10.0.1.0/24"
+}
+variable "mockten_pub_subnet2_cidr" {
+    default = "10.0.2.0/24"
+}
+variable "mockten_pri_subnet1_cidr" {
+    default = "10.0.3.0/24"
+}
+variable "mockten_pri_subnet2_cidr" {
+    default = "10.0.4.0/24"
+}
+
+### varialbe param(vmss)
+variable "vmss_sku" {
+  description = "The SKU of the Virtual Machine Scale Set."
+  default     = "Standard_B2ats_v2"
+}
+
+variable "vmss_tier" {
+  description = "The Tier of the Virtual Machine Scale Set."
+  type        = string
+  default     = "Standard"
+}
+
+variable "vmss_capacity" {
+  description = "The number of instances in the VM scale set."
+  type        = number
+  default     = 1  
+}
+
+variable "admin_username" {
+  description = "The admin username for the VM."
+  type        = string
+  default     = "azureuser"
+}
+
+variable "admin_password" {
+  description = "The admin password for the VM."
+  type        = string
+}
+
+variable "data_disk_size_gb" {
+  description = "The size of the data disk in GB."
+  type        = number
+  default     = 64
+}
+
+variable "managed_disk_type" {
+  description = "The type of the managed disk (e.g., StandardSSD_LRS, Premium_LRS)."
+  type        = string
+  default     = "StandardSSD_LRS"
+}
+
+variable "os_image_publisher" {
+  description = "The publisher of the OS image."
+  type        = string
+  default     = "Canonical"
+}
+
+variable "os_image_offer" {
+  description = "The offer of the OS image."
+  type        = string
+  default     = "UbuntuServer"
+}
+
+variable "os_image_sku" {
+  description = "The SKU of the OS image."
+  type        = string
+  default     = "18.04-LTS"
+}
+
+variable "os_image_version" {
+  description = "The version of the OS image."
+  type        = string
+  default     = "latest"
+}
+
 ### varialbe param(Disk)
 #variable "mockten_disk_zone" {
 #    default = "us-east1-b"
@@ -54,23 +136,6 @@ variable "dns_name" {
 #variable "kiali_dns_name" {
 #    default = "www.kiali.mockten.net."
 #}
-
-### varialbe param(NW)
-variable "vnet_cidr" {
-  default = "10.0.0.0/16"
-}
-variable "mockten_pub_subnet1_cidr" {
-    default = "10.0.1.0/24"
-}
-variable "mockten_pub_subnet2_cidr" {
-    default = "10.0.2.0/24"
-}
-variable "mockten_pri_subnet1_cidr" {
-    default = "10.0.3.0/24"
-}
-variable "mockten_pri_subnet2_cidr" {
-    default = "10.0.4.0/24"
-}
 
 ### varialbe param(k8s)
 #variable "k8s_location" {
