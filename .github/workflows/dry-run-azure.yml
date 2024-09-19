@@ -31,6 +31,11 @@ jobs:
     - name: Initialize Terraform for Azure
       working-directory: azure
       run: terraform init -var-file="../temp.tfvars"
+      
+    - name: Temp Terraform for Azure
+      working-directory: azure
+      run: terraform force-unlock 0a7870ff-42e1-123d-f2a8-53863b930773
+
 
     - name: Terraform Plan for Azure
       working-directory: azure
