@@ -1,0 +1,35 @@
+name: Deploy(Azure)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: 1.9.5
+        
+    - name: Set up Terraform variables
+      run: |
+        echo "github_username = \"${{ secrets.GITHUB_USERNAME }}\"" > temp.tfvars
+        echo "github_token    = \"${{ secrets.GITHUB_TOKEN }}\"" >> temp.tfvars
+        echo "github_email    = \"${{ secrets.GITHUB_EMAIL }}\"" >> temp.tfvars
+
+    - name: Initialize Terraform for Azure
+      working-directory: azure
+      run: terraform init -var-file="../temp.tfvars"
+      
+    - name: Terraform Apply for Azure
+      working-directory: azure
+      run: terraform apply -var-file="../temp.tfvars" -auto-approve
