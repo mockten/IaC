@@ -50,7 +50,7 @@ variable "data_disk_size_gb" {
 variable "managed_disk_type" {
   description = "The type of the managed disk (e.g., StandardSSD_LRS, Premium_LRS)."
   type        = string
-  ddefault    = null
+  default    = null
 }
 
 variable "os_image_publisher" {
