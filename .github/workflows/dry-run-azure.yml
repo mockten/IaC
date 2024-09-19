@@ -34,7 +34,7 @@ jobs:
       
     - name: Temp Terraform for Azure
       working-directory: azure
-      run: terraform force-unlock 0a7870ff-42e1-123d-f2a8-53863b930773
+      run: yes | terraform force-unlock 0a7870ff-42e1-123d-f2a8-53863b930773
 
 
     - name: Terraform Plan for Azure
