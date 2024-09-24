@@ -1,4 +1,5 @@
-[![DryRun(minikube)](https://github.com/mockten/IaC/actions/workflows/basic-plan.yml/badge.svg)](https://github.com/mockten/IaC/actions/workflows/basic-plan.yml)
+[![DryRun(minikube)](https://github.com/mockten/IaC/actions/workflows/dry-run-local.yml/badge.svg)](https://github.com/mockten/IaC/actions/workflows/dry-run-local.yml)
+[![DryRun(Azure)](https://github.com/mockten/IaC/actions/workflows/dry-run-azure.yml/badge.svg)](https://github.com/mockten/IaC/actions/workflows/dry-run-azure.yml)
 # Building Infrastructure
 
 ## For AWS/GCP/Azure
