@@ -5,7 +5,7 @@ resource "azurerm_kubernetes_cluster" "mockten_aks" {
   dns_prefix          = "mockten"
 
   default_node_pool {
-    name                = "mocktenPool"
+    name                = "mocktenpool"
     node_count          = var.vmss_capacity  
     vm_size             = var.vmss_sku       
     vnet_subnet_id      = var.mockten_pri_subnet1
