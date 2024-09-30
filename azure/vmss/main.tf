@@ -1,49 +1,47 @@
-resource "azurerm_virtual_machine_scale_set" "mockten_vmss" {
-  name                = "mockten-vmss"
+resource "azurerm_kubernetes_cluster" "mockten_aks" {
+  name                = "mockten-aks"
   location            = var.location
   resource_group_name = var.resource_group_name
-  sku {
-    name     = var.vmss_sku
-    tier     = var.vmss_tier
-    capacity = var.vmss_capacity
+  dns_prefix          = "mockten"
+
+  default_node_pool {
+    name                = "default"
+    node_count          = var.vmss_capacity  
+    vm_size             = var.vmss_sku       
+    vnet_subnet_id      = var.mockten_pri_subnet1
+    os_disk_size_gb     = var.data_disk_size_gb
+    enable_auto_scaling = false
   }
-  
-  upgrade_policy_mode = "Manual"
+
+  identity {
+    type = "SystemAssigned"
+  }
 
   network_profile {
-    name    = "mockten-network-profile"
-    primary = true
-    ip_configuration {
-      name      = "internal"
-      primary   = true
-      subnet_id = var.mockten_pri_subnet1
-    }
+    network_plugin = "azure"
   }
 
-  os_profile {
-    computer_name_prefix = "vmss"
-    admin_username       = var.admin_username
-    admin_password       = var.admin_password
-  }
-
-  storage_profile_os_disk {
-    caching           = "ReadWrite"
-    create_option     = "FromImage"
-    managed_disk_type = var.managed_disk_type
-  }
-
-  storage_profile_data_disk {
-    lun               = 0
-    caching           = "ReadWrite"
-    create_option     = "Empty"
-    disk_size_gb      = var.data_disk_size_gb
-    managed_disk_type = var.managed_disk_type
-  }
-
-  storage_profile_image_reference {
-    publisher = var.os_image_publisher
-    offer     = var.os_image_offer
-    sku       = var.os_image_sku
-    version   = var.os_image_version
+  tags = {
+    environment = "development" 
   }
 }
+
+resource "azurerm_kubernetes_cluster_node_pool" "extra_node_pool" {
+  depends_on          = [azurerm_kubernetes_cluster.mockten_aks]
+  kubernetes_cluster_id = azurerm_kubernetes_cluster.mockten_aks.id
+
+  name                = "mocktenpool"
+  node_count          = var.vmss_capacity
+  vm_size             = var.vmss_sku  
+  vnet_subnet_id      = var.mockten_pri_subnet1
+  os_disk_size_gb     = var.data_disk_size_gb
+  enable_auto_scaling = false
+  node_labels = {
+    environment = "development"  
+  }
+
+  tags = {
+    environment = "development"  
+  }
+}
+
