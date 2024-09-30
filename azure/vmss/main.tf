@@ -1,11 +1,11 @@
 resource "azurerm_kubernetes_cluster" "mockten_aks" {
   name                = "mockten-aks"
-  location            = var.location
-  resource_group_name = var.resource_group_name
+  location            = azurerm_resource_group.example.location
+  resource_group_name = azurerm_resource_group.example.name
   dns_prefix          = "mockten"
 
   default_node_pool {
-    name                = "default"
+    name                = "mockten-pool"
     node_count          = var.vmss_capacity  
     vm_size             = var.vmss_sku       
     vnet_subnet_id      = var.mockten_pri_subnet1
@@ -17,31 +17,19 @@ resource "azurerm_kubernetes_cluster" "mockten_aks" {
     type = "SystemAssigned"
   }
 
-  network_profile {
-    network_plugin = "azure"
-  }
-
   tags = {
-    environment = "development" 
+    Environment = "development" 
   }
 }
 
-resource "azurerm_kubernetes_cluster_node_pool" "extra_node_pool" {
-  depends_on          = [azurerm_kubernetes_cluster.mockten_aks]
-  kubernetes_cluster_id = azurerm_kubernetes_cluster.mockten_aks.id
+output "client_certificate" {
+  value     = azurerm_kubernetes_cluster.mockten_aks.kube_config[0].client_certificate
+  sensitive = true
+}
 
-  name                = "mocktenpool"
-  node_count          = var.vmss_capacity
-  vm_size             = var.vmss_sku  
-  vnet_subnet_id      = var.mockten_pri_subnet1
-  os_disk_size_gb     = var.data_disk_size_gb
-  enable_auto_scaling = false
-  node_labels = {
-    environment = "development"  
-  }
+output "kube_config" {
+  value = azurerm_kubernetes_cluster.mockten_aks.kube_config_raw
 
-  tags = {
-    environment = "development"  
-  }
+  sensitive = true
 }
 
