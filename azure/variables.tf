@@ -3,7 +3,7 @@ variable "resource_group_name" {
   default = "mockten-rg"
 }
 variable "location" {
-    default =  "eastus"
+    default =  "japaneast"
 }
 
 ### varialbe param(NW)
