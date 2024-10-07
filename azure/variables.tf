@@ -3,7 +3,7 @@ variable "resource_group_name" {
   default = "mockten-rg"
 }
 variable "location" {
-    default =  "eastus"
+    default =  "westus"
 }
 
 ### varialbe param(NW)
@@ -21,6 +21,10 @@ variable "mockten_pri_subnet1_cidr" {
 }
 variable "mockten_pri_subnet2_cidr" {
     default = "10.0.4.0/24"
+}
+
+variable "mockten_bastion_subnet_cidr" {
+    default = "10.0.5.0/24"
 }
 
 ### varialbe param(vmss)
