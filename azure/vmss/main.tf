@@ -47,3 +47,11 @@ resource "azurerm_virtual_machine_scale_set" "mockten_vmss" {
     version   = var.os_image_version
   }
 }
+
+resource "azurerm_public_ip" "bastion_ip" {
+  name                = "mockten-bastion-pip"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  allocation_method   = "Static"
+  sku                 = "Basic"
+}
