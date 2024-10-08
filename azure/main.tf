@@ -64,6 +64,7 @@ module "vmss" {
   os_image_sku           = var.os_image_sku
   os_image_version       = var.os_image_version
   mockten_bastion_subnet = module.nw.mockten_bastion_subnet
+  mockten_vnet           = module.nw.mockten_vnet
 
   providers = {
     azurerm = azurerm.azure

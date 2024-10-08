@@ -82,3 +82,8 @@ variable "mockten_bastion_subnet" {
   type        = string
   default     = null
 }
+variable "mockten_vnet" {
+  description = "Vnet ID of Mockten"
+  type        = string
+  default     = null
+}

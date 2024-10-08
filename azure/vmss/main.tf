@@ -59,10 +59,11 @@ resource "azurerm_bastion_host" "mockten_bastion" {
   name                    = "mockten-bastion"
   location                = var.location
   resource_group_name     = var.resource_group_name
-  sku                     = "Basic"
-  ip_configuration {
-    name                 = "bastion-ip-config"
-    subnet_id            = var.mockten_bastion_subnet
-    public_ip_address_id = azurerm_public_ip.bastion_ip.id
-  }
+  sku                     = "Developer"
+  virtual_network_id      = var.mockten_vnet
+  #ip_configuration {
+  #  name                 = "bastion-ip-config"
+  #  subnet_id            = var.mockten_bastion_subnet
+  #  public_ip_address_id = azurerm_public_ip.bastion_ip.id
+  #}
 }
