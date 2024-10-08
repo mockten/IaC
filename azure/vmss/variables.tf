@@ -77,11 +77,6 @@ variable "os_image_version" {
   default     = null
 }
 
-variable "mockten_bastion_subnet" {
-  description = "Subnet ID of Azure Bastion"
-  type        = string
-  default     = null
-}
 variable "mockten_vnet" {
   description = "Vnet ID of Mockten"
   type        = string
