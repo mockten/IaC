@@ -76,3 +76,9 @@ variable "os_image_version" {
   type        = string
   default     = null
 }
+
+variable "mockten_vnet" {
+  description = "Vnet ID of Mockten"
+  type        = string
+  default     = null
+}
