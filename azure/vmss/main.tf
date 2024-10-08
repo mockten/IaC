@@ -59,7 +59,7 @@ resource "azurerm_bastion_host" "mockten_bastion" {
   name                    = "mockten-bastion"
   location                = var.location
   resource_group_name     = var.resource_group_name
-  sku                     = "Developer"
+  sku                     = "Basic"
   ip_configuration {
     name                 = "bastion-ip-config"
     subnet_id            = var.mockten_bastion_subnet
