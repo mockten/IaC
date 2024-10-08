@@ -26,10 +26,6 @@ variable "mockten_pri_subnet2_cidr" {
     type        = string
     default     = null
 }
-variable "mockten_bastion_subnet_cidr" {
-    type        = string
-    default     = null
-}
 variable "nsg_id" {
     type        = string
     default     = null

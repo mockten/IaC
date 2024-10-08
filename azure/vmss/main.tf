@@ -48,22 +48,10 @@ resource "azurerm_virtual_machine_scale_set" "mockten_vmss" {
   }
 }
 
-resource "azurerm_public_ip" "bastion_ip" {
-  name                = "mockten-bastion-pip"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  allocation_method   = "Static"
-  sku                 = "Standard"
-}
 resource "azurerm_bastion_host" "mockten_bastion" {
   name                    = "mockten-bastion"
   location                = var.location
   resource_group_name     = var.resource_group_name
   sku                     = "Developer"
   virtual_network_id      = var.mockten_vnet
-  #ip_configuration {
-  #  name                 = "bastion-ip-config"
-  #  subnet_id            = var.mockten_bastion_subnet
-  #  public_ip_address_id = azurerm_public_ip.bastion_ip.id
-  #}
 }
