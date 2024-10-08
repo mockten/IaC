@@ -24,10 +24,11 @@ resource "azurerm_virtual_machine_scale_set" "mockten_vmss" {
     computer_name_prefix = "vmss"
     admin_username       = var.admin_username
     admin_password       = var.admin_password
-    custom_data          = base64encode(<<-EOT
-      #!/bin/bash
-      curl -sfL https://get.k3s.io | sh -s - --write-kubeconfig-mode 644
-      EOT)
+    custom_data          = base64encode(<<EOT
+#!/bin/bash
+curl -sfL https://get.k3s.io | sh -s - --write-kubeconfig-mode 644
+EOT
+    )
   }
 
   storage_profile_os_disk {
