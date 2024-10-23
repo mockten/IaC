@@ -5,6 +5,11 @@ variable "resource_group_name" {
 variable "location" {
     default =  "westus"
 }
+variable "mockten_vnet" {
+  description = "Vnet ID of Mockten"
+  type        = string
+  default     = null
+}
 
 ### varialbe param(NW)
 variable "vnet_cidr" {
