@@ -82,3 +82,9 @@ variable "mockten_vnet" {
   type        = string
   default     = null
 }
+
+variable "MOCKTEN_REPO_PAT" {
+  type = string
+  description = "GitHub Personal Access Token for Mockten repository"
+  default     = null
+}
