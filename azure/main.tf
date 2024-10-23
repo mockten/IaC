@@ -63,7 +63,7 @@ module "vmss" {
   os_image_offer         = var.os_image_offer
   os_image_sku           = var.os_image_sku
   os_image_version       = var.os_image_version
-
+  repo_pat               = var.repo_pat
   providers = {
     azurerm = azurerm.azure
   }
