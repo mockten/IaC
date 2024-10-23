@@ -33,16 +33,16 @@ sudo apt update
 sudo apt install jq -y
 curl -sfL https://get.k3s.io | sh -s - --write-kubeconfig-mode 644
 echo "export GITHUB_PAT=${var.repo_pat}" >> /etc/environment
-#RUNNER_ID=$(curl -s -X GET -H "Authorization: token $GITHUB_PAT" https://api.github.com/repos/mockten/IaC/actions/runners | jq -r '.runners[] | select(.name == "$(hostname)") | .id')
-#if [ -n "$RUNNER_ID" ]; then
-#    curl -X DELETE -H "Authorization: token $GITHUB_PAT" https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/actions/runners/$RUNNER_ID
-#fi
-RUNNER_NAME="mockten-vmss$(date +'%Y%m%d%H%M')"
+RUNNER_ID=$(curl -s -X GET -H "Authorization: token $GITHUB_PAT" https://api.github.com/repos/mockten/IaC/actions/runners | jq -r '.runners[] | select(.name == "mockten-vmss") | .id')
+if [ -n "$RUNNER_ID" ]; then
+    curl -X DELETE -H "Authorization: token $GITHUB_PAT" https://api.github.com/repos/mockten/IaC/actions/runners/$RUNNER_ID
+fi
 REG_TOKEN=$(curl -s -X POST -H "Authorization: token $GITHUB_PAT" https://api.github.com/repos/mockten/IaC/actions/runners/registration-token | jq -r .token)
 curl -o actions-runner-linux-x64-2.298.2.tar.gz -L https://github.com/actions/runner/releases/download/v2.298.2/actions-runner-linux-x64-2.298.2.tar.gz
 tar xzf ./actions-runner-linux-x64-2.298.2.tar.gz
-echo "" | ./config.sh --url https://github.com/mockten/IaC --token $REG_TOKEN --name "$RUNNER_NAME" --labels "self-hosted,Linux,X64" --work _work
+echo "" | ./config.sh --url https://github.com/mockten/IaC --token $REG_TOKEN --name "mockten-vmss" --labels "self-hosted,Linux,X64" --work _work
 sudo ./svc.sh install
+sudo ./svc.sh start
 EOT
     )
   }
