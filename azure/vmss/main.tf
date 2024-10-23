@@ -39,7 +39,6 @@ echo "export GITHUB_PAT=${var.repo_pat}" >> /etc/environment
 RUNNER_ID=$(curl -s -X GET -H "Authorization: token ${var.repo_pat}" https://api.github.com/repos/mockten/IaC/actions/runners | jq -r '.runners[] | select(.name == "mockten-vmss") | .id')
 if [ -n "$RUNNER_ID" ]; then
     curl -X DELETE -H "Authorization: token ${var.repo_pat}" https://api.github.com/repos/mockten/IaC/actions/runners/$RUNNER_ID
-    echo "debug1" >> /tmp/debug21.txt
 fi
 REG_TOKEN=$(curl -s -X POST -H "Authorization: token ${var.repo_pat}" https://api.github.com/repos/mockten/IaC/actions/runners/registration-token | jq -r .token)
 
