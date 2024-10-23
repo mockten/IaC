@@ -34,3 +34,13 @@ jobs:
     - name: Terraform Apply for Azure
       working-directory: azure
       run: terraform apply -var-file="../temp.tfvars" -auto-approve
+      
+  test-runner:
+    needs: deploy
+    runs-on: self-hosted 
+    steps:
+    - name: Check if runner is working and output to /tmp/test.txt
+      run: |
+        echo "GitHub Actions Runner is running on $(hostname)" > /tmp/test.txt
+        echo "Working Directory: $(pwd)" >> /tmp/test.txt
+        echo "Date: $(date)" >> /tmp/test.txt
