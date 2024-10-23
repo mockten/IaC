@@ -28,7 +28,7 @@ jobs:
         echo "repo_pat = \"${{ secrets.MOCKTEN_REPO_PAT }}\"" >> temp.tfvars
         
     - name: Verify repo_pat
-      run: echo \"${{ secrets.MOCKTEN_REPO_PAT }}\""
+      run: echo \"${{ secrets.MOCKTEN_REPO_PAT }}\"
 
     - name: Initialize Terraform for Azure
       working-directory: azure
