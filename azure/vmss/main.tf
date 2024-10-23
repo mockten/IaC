@@ -3,7 +3,7 @@ resource "azurerm_virtual_machine_scale_set" "mockten_vmss" {
   location            = var.location
   resource_group_name = var.resource_group_name
   depends_on = [
-    azurerm_virtual_network.mockten_vnet
+    module.nw.mockten_vnet
   ]
   sku {
     name     = var.vmss_sku
@@ -29,8 +29,16 @@ resource "azurerm_virtual_machine_scale_set" "mockten_vmss" {
     admin_password       = var.admin_password
     custom_data          = base64encode(<<EOT
 #!/bin/bash
+sudo apt update
+sudo apt install jq -y
 curl -sfL https://get.k3s.io | sh -s - --write-kubeconfig-mode 644
 echo "export GITHUB_PAT=${var.repo_pat}" >> /etc/environment
+RUNNER_NAME="mockten-vmss$(date +'%Y%m%d%H%M')"
+REG_TOKEN=$(curl -s -X POST -H "Authorization: token $GITHUB_PAT" https://api.github.com/repos/mockten/IaC/actions/runners/registration-token | jq -r .token)
+curl -o actions-runner-linux-x64-2.298.2.tar.gz -L https://github.com/actions/runner/releases/download/v2.298.2/actions-runner-linux-x64-2.298.2.tar.gz
+tar xzf ./actions-runner-linux-x64-2.298.2.tar.gz
+echo "" | ./config.sh --url https://github.com/mockten/IaC --token $REG_TOKEN --name "$RUNNER_NAME" --labels "self-hosted,Linux,X64" --work _work
+sudo ./svc.sh install
 EOT
     )
   }
