@@ -2,6 +2,9 @@ resource "azurerm_virtual_machine_scale_set" "mockten_vmss" {
   name                = "mockten-vmss"
   location            = var.location
   resource_group_name = var.resource_group_name
+  depends_on = [
+    azurerm_virtual_network.mockten_vnet
+  ]
   sku {
     name     = var.vmss_sku
     tier     = var.vmss_tier
