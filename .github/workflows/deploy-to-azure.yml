@@ -33,3 +33,5 @@ jobs:
     - name: Terraform Apply for Azure
       working-directory: azure
       run: terraform apply -var-file="../temp.tfvars" -auto-approve
+      env:
+        MOCKTEN_REPO_PAT: ${{ secrets.MOCKTEN_REPO_PAT }}
