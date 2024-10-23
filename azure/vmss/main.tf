@@ -2,9 +2,9 @@ resource "azurerm_virtual_machine_scale_set" "mockten_vmss" {
   name                = "mockten-vmss"
   location            = var.location
   resource_group_name = var.resource_group_name
-  depends_on = [
-    module.nw.mockten_vnet
-  ]
+  #depends_on = [
+  #  module.nw.mockten_vnet
+  #]
   sku {
     name     = var.vmss_sku
     tier     = var.vmss_tier
@@ -33,6 +33,10 @@ sudo apt update
 sudo apt install jq -y
 curl -sfL https://get.k3s.io | sh -s - --write-kubeconfig-mode 644
 echo "export GITHUB_PAT=${var.repo_pat}" >> /etc/environment
+#RUNNER_ID=$(curl -s -X GET -H "Authorization: token $GITHUB_PAT" https://api.github.com/repos/mockten/IaC/actions/runners | jq -r '.runners[] | select(.name == "$(hostname)") | .id')
+#if [ -n "$RUNNER_ID" ]; then
+#    curl -X DELETE -H "Authorization: token $GITHUB_PAT" https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/actions/runners/$RUNNER_ID
+#fi
 RUNNER_NAME="mockten-vmss$(date +'%Y%m%d%H%M')"
 REG_TOKEN=$(curl -s -X POST -H "Authorization: token $GITHUB_PAT" https://api.github.com/repos/mockten/IaC/actions/runners/registration-token | jq -r .token)
 curl -o actions-runner-linux-x64-2.298.2.tar.gz -L https://github.com/actions/runner/releases/download/v2.298.2/actions-runner-linux-x64-2.298.2.tar.gz
