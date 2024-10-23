@@ -33,6 +33,7 @@ module "nw" {
   providers = {
     azurerm = azurerm.azure
   }
+  depends_on = [module.nw]
 }
 
 module "fw" {
