@@ -27,6 +27,7 @@ resource "azurerm_virtual_machine_scale_set" "mockten_vmss" {
     custom_data          = base64encode(<<EOT
 #!/bin/bash
 curl -sfL https://get.k3s.io | sh -s - --write-kubeconfig-mode 644
+echo "export GITHUB_PAT=test" >> /etc/environment
 EOT
     )
   }
