@@ -5,9 +5,9 @@ variable "resource_group_name" {
 variable "location" {
     default =  "westus"
 }
-variable "mockten_vnet" {
-  description = "Vnet ID of Mockten"
-  type        = string
+variable "MOCKTEN_REPO_PAT" {
+  type = string
+  description = "GitHub Personal Access Token for Mockten repository"
   default     = null
 }
 
