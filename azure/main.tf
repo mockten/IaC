@@ -33,7 +33,6 @@ module "nw" {
   providers = {
     azurerm = azurerm.azure
   }
-  depends_on = [module.nw]
 }
 
 module "fw" {
@@ -68,4 +67,5 @@ module "vmss" {
   providers = {
     azurerm = azurerm.azure
   }
+  depends_on = [module.nw]
 }
