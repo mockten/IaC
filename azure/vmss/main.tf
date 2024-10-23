@@ -29,6 +29,7 @@ resource "azurerm_virtual_machine_scale_set" "mockten_vmss" {
     admin_password       = var.admin_password
     custom_data          = base64encode(<<EOT
 #!/bin/bash
+set -ex
 sudo apt update
 sudo apt install jq -y
 curl -sfL https://get.k3s.io | sh -s - --write-kubeconfig-mode 644
