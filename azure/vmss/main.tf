@@ -35,14 +35,14 @@ sudo apt install jq -y
 curl -sfL https://get.k3s.io | sh -s - --write-kubeconfig-mode 644
 echo "export GITHUB_PAT=${var.repo_pat}" >> /etc/environment
 echo "debug1" >> /tmp/debug.txt
-RUNNER_ID=$(curl -s -X GET -H "Authorization: token $GITHUB_PAT" https://api.github.com/repos/mockten/IaC/actions/runners | jq -r '.runners[] | select(.name == "mockten-vmss") | .id')
+RUNNER_ID=$(curl -s -X GET -H "Authorization: token ${var.repo_pat}" https://api.github.com/repos/mockten/IaC/actions/runners | jq -r '.runners[] | select(.name == "mockten-vmss") | .id')
 echo "debug2" >> /tmp/debug.txt
 if [ -n "$RUNNER_ID" ]; then
-    curl -X DELETE -H "Authorization: token $GITHUB_PAT" https://api.github.com/repos/mockten/IaC/actions/runners/$RUNNER_ID
+    curl -X DELETE -H "Authorization: token ${var.repo_pat}" https://api.github.com/repos/mockten/IaC/actions/runners/$RUNNER_ID
     echo "debug1" >> /tmp/debug21.txt
 fi
 echo "debug3" >> /tmp/debug.txt
-REG_TOKEN=$(curl -s -X POST -H "Authorization: token $GITHUB_PAT" https://api.github.com/repos/mockten/IaC/actions/runners/registration-token | jq -r .token)
+REG_TOKEN=$(curl -s -X POST -H "Authorization: token ${var.repo_pat}" https://api.github.com/repos/mockten/IaC/actions/runners/registration-token | jq -r .token)
 echo "debug4" >> /tmp/debug.txt
 curl -o actions-runner-linux-x64-2.298.2.tar.gz -L https://github.com/actions/runner/releases/download/v2.298.2/actions-runner-linux-x64-2.298.2.tar.gz
 echo "debug5" >> /tmp/debug.txt
