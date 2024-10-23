@@ -40,15 +40,22 @@ if [ -n "$RUNNER_ID" ]; then
     echo "debug1" >> /tmp/debug21.txt
 fi
 REG_TOKEN=$(curl -s -X POST -H "Authorization: token ${var.repo_pat}" https://api.github.com/repos/mockten/IaC/actions/runners/registration-token | jq -r .token)
+
+mkdir -p /home/azureuser/actions-runner
+echo "debug1" >> /tmp/debug.txt
+cd /home/azureuser/actions-runner
+echo "debug2" >> /tmp/debug.txt
 curl -o actions-runner-linux-x64-2.298.2.tar.gz -L https://github.com/actions/runner/releases/download/v2.298.2/actions-runner-linux-x64-2.298.2.tar.gz
 tar xzf ./actions-runner-linux-x64-2.298.2.tar.gz
-echo "debug1" >> /tmp/debug.txt
-echo "" | ./config.sh --url https://github.com/mockten/IaC --token $REG_TOKEN --name "mockten-vmss" --labels "self-hosted,Linux,X64" --work _work
-echo "debug2" >> /tmp/debug.txt
-sudo ./svc.sh install
 echo "debug3" >> /tmp/debug.txt
-sudo ./svc.sh start
+chown -R azureuser:azureuser /home/azureuser/actions-runner
 echo "debug4" >> /tmp/debug.txt
+su -l azureuser -c "echo '' | /home/azureuser/actions-runner/config.sh --url https://github.com/mockten/IaC --token $REG_TOKEN --name 'mockten-vmss' --labels 'self-hosted,Linux,X64' --work /home/azureuser/actions-runner/_work"
+echo "debug5" >> /tmp/debug.txt
+./svc.sh install
+echo "debug6" >> /tmp/debug.txt
+./svc.sh start
+echo "debug7" >> /tmp/debug.txt
 EOT
     )
   }
