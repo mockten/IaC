@@ -83,7 +83,7 @@ variable "os_image_publisher" {
 variable "os_image_offer" {
   description = "The offer of the OS image."
   type        = string
-  default     = "UbuntuServer"
+  default     = "0001-com-ubuntu-server-jammy"
 }
 
 variable "os_image_sku" {
