@@ -29,10 +29,22 @@ resource "azurerm_virtual_machine_scale_set" "mockten_vmss" {
     admin_password       = var.admin_password
     custom_data          = base64encode(<<EOT
 #!/bin/bash
+# Terraform Set up
 set -ex
-sudo apt update
-sudo apt install jq -y
+apt update
+apt install jq -y
+apt install -y build-essential manpages-dev
+wget http://ftp.gnu.org/gnu/libc/glibc-2.28.tar.gz
+tar -xvzf glibc-2.28.tar.gz
+cd glibc-2.28
+mkdir build
+cd build
+../configure --prefix=/usr
+make
+make install
+
 # K3 Set up
+cd /
 curl -sfL https://get.k3s.io | sh -s - --write-kubeconfig-mode 644
 # GitHub Action Runner Set up
 echo "export GITHUB_PAT=${var.repo_pat}" >> /etc/environment
