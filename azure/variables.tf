@@ -83,14 +83,14 @@ variable "os_image_publisher" {
 variable "os_image_offer" {
   description = "The offer of the OS image."
   type        = string
-  default     = "0001-com-ubuntu-confidential-vm-jammy"
+  default     = "0001-com-ubuntu-minimal-jammy"
   #default     = "0001-com-ubuntu-server-jammy"
 }
 
 variable "os_image_sku" {
   description = "The SKU of the OS image."
   type        = string
-  default     = "22_04-lts-cvm"
+  default     = "minimal-22_04-lts"
   #default     = "22_04-lts"
 }
 
