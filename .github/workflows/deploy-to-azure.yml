@@ -44,6 +44,9 @@ jobs:
         echo "GitHub Actions Runner is running on $(hostname)" > /tmp/test.txt
         echo "Working Directory: $(pwd)" >> /tmp/test.txt
         echo "Date: $(date)" >> /tmp/test.txt
-        
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: 1.9.5
     - name: Checkout repository
       uses: actions/checkout@v2
