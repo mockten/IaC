@@ -32,8 +32,7 @@ resource "azurerm_virtual_machine_scale_set" "mockten_vmss" {
 # Terraform Set up
 set -ex
 apt update
-apt install jq -y
-apt install -y build-essential manpages-dev
+apt install jq bison build-essential manpages-dev -y
 wget http://ftp.gnu.org/gnu/libc/glibc-2.28.tar.gz
 tar -xvzf glibc-2.28.tar.gz
 cd glibc-2.28
