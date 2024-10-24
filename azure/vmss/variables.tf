@@ -76,3 +76,15 @@ variable "os_image_version" {
   type        = string
   default     = null
 }
+
+variable "mockten_vnet" {
+  description = "Vnet ID of Mockten"
+  type        = string
+  default     = null
+}
+
+variable "repo_pat" {
+  type = string
+  description = "GitHub Personal Access Token for Mockten repository"
+  default     = null
+}
