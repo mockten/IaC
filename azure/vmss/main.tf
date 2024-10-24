@@ -33,14 +33,14 @@ resource "azurerm_virtual_machine_scale_set" "mockten_vmss" {
 set -ex
 apt update
 apt install jq bison build-essential manpages-dev -y
-wget http://ftp.gnu.org/gnu/libc/glibc-2.28.tar.gz
-tar -xvzf glibc-2.28.tar.gz
-cd glibc-2.28
-mkdir build
-cd build
-../configure --prefix=/usr
-make
-make install
+#wget http://ftp.gnu.org/gnu/libc/glibc-2.28.tar.gz
+#tar -xvzf glibc-2.28.tar.gz
+#cd glibc-2.28
+#mkdir build
+#cd build
+#../configure --prefix=/usr
+#make
+#make install
 
 # K3 Set up
 cd /
