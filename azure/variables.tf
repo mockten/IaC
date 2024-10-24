@@ -89,7 +89,7 @@ variable "os_image_offer" {
 variable "os_image_sku" {
   description = "The SKU of the OS image."
   type        = string
-  default     = "18.04-LTS"
+  default     = "22.04-LTS"
 }
 
 variable "os_image_version" {
