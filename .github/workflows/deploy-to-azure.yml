@@ -46,7 +46,7 @@ jobs:
         echo "Date: $(date)" >> /tmp/runner_status.txt
     - name: Checkout repository
       uses: actions/checkout@v4
-    #- name: Set up Terraform
-    #  uses: hashicorp/setup-terraform@v3
-    #  with:
-    #    terraform_version: 1.9.5
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.9.5
