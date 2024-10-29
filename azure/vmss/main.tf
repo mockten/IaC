@@ -2,9 +2,6 @@ resource "azurerm_virtual_machine_scale_set" "mockten_vmss" {
   name                = "mockten-vmss"
   location            = var.location
   resource_group_name = var.resource_group_name
-  #depends_on = [
-  #  module.nw.mockten_vnet
-  #]
   sku {
     name     = var.vmss_sku
     tier     = var.vmss_tier
@@ -32,7 +29,7 @@ resource "azurerm_virtual_machine_scale_set" "mockten_vmss" {
 # Terraform Set up
 set -ex
 apt update
-apt install jq bison build-essential manpages-dev -y
+apt install jq unzip bison build-essential manpages-dev -y
 
 # K3 Set up
 cd /
