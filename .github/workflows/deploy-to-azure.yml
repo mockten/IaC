@@ -37,7 +37,7 @@ jobs:
       
   local-k8s-deployment:
     needs: deploy
-    runs-on: self-hosted 
+    runs-on: [self-hosted, mockten-vmss]
     steps:
     - name: Check if runner is working and output to /tmp/runner_status.txt
       run: |
