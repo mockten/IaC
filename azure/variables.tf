@@ -3,7 +3,12 @@ variable "resource_group_name" {
   default = "mockten-rg"
 }
 variable "location" {
-    default =  "japaneast"
+    default =  "westus"
+}
+variable "repo_pat" {
+  type = string
+  description = "GitHub Personal Access Token for Mockten repository"
+  default     = null
 }
 
 ### varialbe param(NW)
@@ -21,6 +26,10 @@ variable "mockten_pri_subnet1_cidr" {
 }
 variable "mockten_pri_subnet2_cidr" {
     default = "10.0.4.0/24"
+}
+
+variable "mockten_bastion_subnet_cidr" {
+    default = "10.0.5.0/24"
 }
 
 ### varialbe param(vmss)
@@ -74,13 +83,15 @@ variable "os_image_publisher" {
 variable "os_image_offer" {
   description = "The offer of the OS image."
   type        = string
-  default     = "UbuntuServer"
+  default     = "0001-com-ubuntu-minimal-jammy"
+  #default     = "0001-com-ubuntu-server-jammy"
 }
 
 variable "os_image_sku" {
   description = "The SKU of the OS image."
   type        = string
-  default     = "18.04-LTS"
+  default     = "minimal-22_04-lts"
+  #default     = "22_04-lts"
 }
 
 variable "os_image_version" {

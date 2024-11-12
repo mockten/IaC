@@ -13,10 +13,10 @@ jobs:
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     - name: Set up Terraform
-      uses: hashicorp/setup-terraform@v2
+      uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: 1.9.5
         
@@ -25,6 +25,7 @@ jobs:
         echo "github_username = \"${{ secrets.GITHUB_USERNAME }}\"" > temp.tfvars
         echo "github_token    = \"${{ secrets.GITHUB_TOKEN }}\"" >> temp.tfvars
         echo "github_email    = \"${{ secrets.GITHUB_EMAIL }}\"" >> temp.tfvars
+        echo "repo_pat = \"${{ secrets.MOCKTEN_REPO_PAT }}\"" >> temp.tfvars
 
     - name: Initialize Terraform for Azure
       working-directory: azure
@@ -33,3 +34,20 @@ jobs:
     - name: Terraform Apply for Azure
       working-directory: azure
       run: terraform apply -var-file="../temp.tfvars" -auto-approve
+      
+  local-k8s-deployment:
+    needs: deploy
+    #runs-on: [self-hosted, mockten-vmss]
+    runs-on: self-hosted
+    steps:
+    - name: Check if runner is working and output to /tmp/runner_status.txt
+      run: |
+        echo "GitHub Actions Runner is running on $(hostname)" > /tmp/runner_status.txt
+        echo "Working Directory: $(pwd)" >> /tmp/runner_status.txt
+        echo "Date: $(date)" >> /tmp/runner_status.txt
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.9.5
