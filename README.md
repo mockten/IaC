@@ -29,14 +29,17 @@ To build infrastructure locally, follow these steps:
     github_token    = "GITHUB_TOKEN"
     github_email    = "GIT_HUB_EMAIL"
     ```
-
-2. To Build k8s in your local environment, please execute the following commands:
+2. To init k8s in your local environment, please execute the following commands:
 
     ```sh
     task init
+    ```
+3. To build k8s in your local environment, please execute the following commands:
+
+    ```sh
     task build
     ```
-3. To clean up, please execute the following commands:
+4. To clean up, please execute the following commands:
 
     ```sh
     task destroy
