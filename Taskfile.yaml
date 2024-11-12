@@ -5,7 +5,7 @@ tasks:
       - (cd local && terraform apply -var-file="local.tfvars" --auto-approve)
   destroy: 
     cmds:
-      - (cd local && terraform build -var-file="local.tfvars" --auto-approve)
+      - (cd local && terraform destroy -var-file="local.tfvars" --auto-approve)
   plan: 
     cmds:
       - (cd local && terraform plan -var-file="local.tfvars")
