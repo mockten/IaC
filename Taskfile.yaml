@@ -12,3 +12,12 @@ tasks:
   init:
     cmds:
       - (cd local && terraform init)
+  codespace_init:
+    cmds:
+      - (./init_codespace.sh)
+  codespace_setup:
+    cmds:
+      - (./setup_codespace.sh)
+  codespsace_portforward:
+    cmds:
+      - (kubectl port-forward --namespace ingress-nginx service/nginx-ingress 8080:80)
