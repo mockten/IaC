@@ -22,7 +22,7 @@ resource "kubernetes_deployment" "ecfront" {
         }
         container {
           name  = "ecfront"
-          image = "ghcr.io/mockten/mockten/ecfront:latest"
+          image = "ghcr.io/mockten/ecfront:latest"
           port {
             container_port = 80
           }
