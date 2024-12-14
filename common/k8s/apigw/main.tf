@@ -22,7 +22,7 @@ resource "kubernetes_deployment" "apigw" {
         }
         container {
           name  = "apigw"
-          image = "ghcr.io/mockten/mockten/apigw:latest"
+          image = "ghcr.io/mockten/apigw:latest"
           port {
             container_port = 80
           }
