@@ -21,26 +21,38 @@ task -v
 ```
 
 To build infrastructure locally, follow these steps:
+1. (For GitHub Codespace User) Open your GitHub Cordspace User
+2. (For GitHub Codespace User) please execute the following commands:
 
-1. Create a `local.tfvars` file in the `local` directory with the following content:
+    ```sh
+    task codespace_k8s_setup
+    ```
+3. Create a `local.tfvars` file in the `local` directory with the following content:
 
     ```hcl
     github_username = "GITHUB_USERNAME"
     github_token    = "GITHUB_TOKEN"
     github_email    = "GIT_HUB_EMAIL"
     ```
-2. To init k8s in your local environment, please execute the following commands:
+4. To init k8s in your local environment, please execute the following commands:
 
     ```sh
     task init
     ```
-3. To build k8s in your local environment, please execute the following commands:
+5. To build k8s in your local environment, please execute the following commands:
 
     ```sh
     task build
     ```
-4. To clean up, please execute the following commands:
+6. (For GitHub Codespace User) please execute the following commands:
+
+    ```sh
+    task codespsace_portforward
+    ```
+7. To clean up, please execute the following commands:
 
     ```sh
     task destroy
     ```
+8. (For Non GitHub Codespace User) you can access to mockten app with "http://localhost"
+9. (For GitHub Codespace User) you can access to mockten app using forward for "http://localhost:8080"
