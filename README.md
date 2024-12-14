@@ -27,6 +27,8 @@ To build infrastructure locally, follow these steps:
     ```sh
     task codespace_k8s_setup
     ```
+    ![CleanShot 2024-12-15 at 03 24 59](https://github.com/user-attachments/assets/266b51cb-1e77-44b8-8af7-5ecd6b8aefa3)
+
 3. Create a `local.tfvars` file in the `local` directory with the following content:
 
     ```hcl
@@ -44,7 +46,7 @@ To build infrastructure locally, follow these steps:
     ```sh
     task build
     ```
-6. (For GitHub Codespace User) please execute the following commands:
+6. (For GitHub Codespace User) please open a new terminal and execute the following commands:
 
     ```sh
     task codespsace_portforward
