@@ -1,4 +1,4 @@
-[![DryRun(minikube)](https://github.com/mockten/IaC/actions/workflows/dry-run-local.yml/badge.svg)](https://github.com/mockten/IaC/actions/workflows/dry-run-local.yml)
+![CleanShot 2024-12-15 at 03 57 35](https://github.com/user-attachments/assets/5702e668-eb68-4d8a-994e-643092fa5105)[![DryRun(minikube)](https://github.com/mockten/IaC/actions/workflows/dry-run-local.yml/badge.svg)](https://github.com/mockten/IaC/actions/workflows/dry-run-local.yml)
 [![DryRun(Azure)](https://github.com/mockten/IaC/actions/workflows/dry-run-azure.yml/badge.svg)](https://github.com/mockten/IaC/actions/workflows/dry-run-azure.yml)
 # Building Infrastructure
 
@@ -47,11 +47,13 @@ To build infrastructure locally, follow these steps:
     ```sh
     task build
     ```
-6. (For GitHub Codespace User) please open a new terminal and execute the following commands:
+6. (For GitHub Codespace User) Please open a new terminal and execute the following commands:
 
     ```sh
     task codespsace_portforward
     ```
+    ![CleanShot 2024-12-15 at 03 55 34](https://github.com/user-attachments/assets/5f47db75-dac4-4dda-a025-867b92d799e5)
+
 7. To clean up, please execute the following commands:
 
     ```sh
@@ -59,3 +61,7 @@ To build infrastructure locally, follow these steps:
     ```
 8. (For Non GitHub Codespace User) you can access to mockten app with "http://localhost"
 9. (For GitHub Codespace User) you can access to mockten app using forward for "http://localhost:8080"
+![CleanShot 2024-12-15 at 03 57 35](https://github.com/user-attachments/assets/2fd67a5f-15e6-42b0-ad4d-5aad6a313725)
+![CleanShot 2024-12-15 at 03 58 09](https://github.com/user-attachments/assets/b0eaf223-9943-4853-b159-8833718547ba)
+
+
