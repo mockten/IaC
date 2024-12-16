@@ -12,3 +12,10 @@ tasks:
   init:
     cmds:
       - (cd local && terraform init)
+  codespace_k8s_setup:
+    cmds:
+      - minikube start
+      - minikube tunnel
+  codespsace_portforward:
+    cmds:
+      - kubectl port-forward --namespace ingress-nginx service/nginx-ingress 8080:80
