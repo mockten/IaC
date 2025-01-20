@@ -14,7 +14,7 @@ resource "kubernetes_config_map" "mockten_realm" {
       "clientId": "mockten-react-client",
       "enabled": true,
       "secret": "mockten-client-secret",
-      "redirectUris": ["http://localhost/*"],
+      "redirectUris": ["http://localhost/*", "http://uam-service.default.svc.cluster.local/*"],
       "publicClient": false,
       "protocol": "openid-connect",
       "directAccessGrantsEnabled": true,
@@ -77,6 +77,12 @@ resource "kubernetes_config_map" "mockten_realm" {
   "groups": [
     {
       "name": "Seller"
+    },
+    {
+      "name": "admin-group",
+      "clientRoles": {
+        "realm-management": ["manage-users"]
+      }
     }
   ],
   "users": [
@@ -92,7 +98,8 @@ resource "kubernetes_config_map" "mockten_realm" {
           "type": "password",
           "value": "superadmin"
         }
-      ]
+      ],
+      "groups": ["admin-group"]
     },
     {
       "username": "seller",
