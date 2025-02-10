@@ -9,20 +9,28 @@ resource "kubernetes_config_map" "mockten_realm" {
 {
   "realm": "mockten-realm-dev",
   "enabled": true,
+  "registrationAllowed": false,
+  "registrationEmailAsUsername": true,
+  "rememberMe": false,
+  "verifyEmail": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
   "clients": [
     {
       "clientId": "mockten-react-client",
       "enabled": true,
       "secret": "mockten-client-secret",
-      "redirectUris": ["http://localhost/*", "http://uam-service.default.svc.cluster.local/*"],
+      "redirectUris": ["http://localhost:5173/*"],
       "publicClient": false,
+      "serviceAccountsEnabled": true,
       "protocol": "openid-connect",
       "directAccessGrantsEnabled": true,
       "attributes": {
         "client_credentials": "true",
         "access.token": "true"
       },
-      "defaultClientScopes": ["web-origins", "role_list", "profile"]
+      "defaultClientScopes": ["web-origins", "role_list", "profile"],
+      "optionalClientScopes": ["manage-users"]
     }
   ],
   "clientScopes": [
@@ -71,17 +79,30 @@ resource "kubernetes_config_map" "mockten_realm" {
       {
         "name": "seller",
         "description": "Role for sellers"
+      },
+      {
+        "name": "customer",
+        "description": "Role for customers"
       }
     ]
   },
   "groups": [
     {
-      "name": "Seller"
+      "name": "Seller",
+      "realmRoles": ["seller"]
+    },
+    {
+      "name": "Customer",
+      "realmRoles": ["customer"]
     },
     {
       "name": "admin-group",
+      "realmRoles": [],
       "clientRoles": {
-        "realm-management": ["manage-users"]
+        "realm-management": [
+          "realm-admin",
+          "manage-users"
+        ]
       }
     }
   ],
@@ -99,7 +120,9 @@ resource "kubernetes_config_map" "mockten_realm" {
           "value": "superadmin"
         }
       ],
-      "groups": ["admin-group"]
+      "groups": [
+        "admin-group"
+      ]
     },
     {
       "username": "seller",
