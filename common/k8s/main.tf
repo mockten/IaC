@@ -28,3 +28,13 @@ module "apigw" {
   source = "./apigw"
   secret_name = kubernetes_secret.ghcr.metadata[0].name
 }
+
+module "minio" {
+  source = "./minio"
+  secret_name = kubernetes_secret.ghcr.metadata[0].name
+}
+
+module "meilisearch" {
+  source = "./meilisearch"
+  secret_name = kubernetes_secret.ghcr.metadata[0].name
+}
