@@ -38,3 +38,13 @@ module "meilisearch" {
   source = "./meilisearch"
   secret_name = kubernetes_secret.ghcr.metadata[0].name
 }
+
+module "mysql" {
+  source = "./mysql"
+  secret_name = kubernetes_secret.ghcr.metadata[0].name
+}
+
+module "searchitem" {
+  source = "./searchitem"
+  secret_name = kubernetes_secret.ghcr.metadata[0].name
+}
