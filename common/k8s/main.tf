@@ -48,3 +48,8 @@ module "searchitem" {
   source = "./searchitem"
   secret_name = kubernetes_secret.ghcr.metadata[0].name
 }
+
+module "sync" {
+  source = "./sync"
+  secret_name = kubernetes_secret.ghcr.metadata[0].name
+}
