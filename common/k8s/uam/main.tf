@@ -1,3 +1,8 @@
+locals {
+  config_json = jsondecode(file("${path.module}/config.json"))
+  realm_json  = templatefile("${path.module}/realm-export.template.json", local.config_json)
+}
+
 resource "kubernetes_deployment" "uam" {
   metadata {
     name = "uam-deploy"
@@ -26,24 +31,35 @@ resource "kubernetes_deployment" "uam" {
           port {
             container_port = 80
           }
+          env {
+            name  = "KC_HOSTNAME"
+            value = "localhost"
+          }
           volume_mount {
             name       = "realm-config"
-            mount_path = "/opt/keycloak/data/import"
+            mount_path = "/opt/keycloak/data/import/realm-export.json"
+            sub_path   = "realm-export.json"
+            read_only  = true
           }
         }
         volume {
           name = "realm-config"
-
           config_map {
-            name = kubernetes_config_map.mockten_realm.metadata[0].name
-            items {
-              key  = "realm-export.json"
-              path = "realm-export.json"
-            }
+            name = kubernetes_config_map.uam_realm.metadata[0].name
           }
         }
       }
     }
+  }
+}
+
+resource "kubernetes_config_map" "uam_realm" {
+  metadata {
+    name      = "uam-realm-config"
+    namespace = "default"
+  }
+  data = {
+    "realm-export.json" = local.realm_json
   }
 }
 resource "kubernetes_service" "uam" {
@@ -57,8 +73,8 @@ resource "kubernetes_service" "uam" {
     }
     port {
       name        = "http"
-      port        = 8080
-      target_port = 8080
+      port        = 80
+      target_port = 80
     }
   }
 }

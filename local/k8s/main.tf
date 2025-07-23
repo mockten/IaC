@@ -246,6 +246,30 @@ resource "kubernetes_ingress_v1" "ecfront" {
               }
             }
           }
+        }
+        path {
+          path = "/realms/mockten-realm-dev/broker/"
+          path_type = "Prefix"
+          backend {
+            service {
+              name = "uam-service"
+              port {
+                number = 80
+              }
+            }
+          }
+        }
+        path {
+          path = "/realms/mockten-realm-dev/login-actions/"
+          path_type = "Prefix"
+          backend {
+            service {
+              name = "uam-service"
+              port {
+                number = 80
+              }
+            }
+          }
         }                
       }
     }

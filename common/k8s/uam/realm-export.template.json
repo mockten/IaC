@@ -1,0 +1,316 @@
+{
+  "realm": "mockten-realm-dev",
+  "enabled": true,
+  "registrationAllowed": false,
+  "registrationEmailAsUsername": true,
+  "rememberMe": false,
+  "verifyEmail": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+
+  "identityProviders": [
+    {
+      "alias": "google",
+      "providerId": "google",
+      "enabled": true,
+      "trustEmail": true,
+      "storeToken": true,
+      "addReadTokenRoleOnCreate": false,
+      "authenticateByDefault": false,
+      "linkOnly": false,
+      "firstBrokerLoginFlowAlias": "first broker login",
+      "config": {
+        "clientId": "${GOOGLE_CLIENT_ID}",
+        "clientSecret": "${GOOGLE_CLIENT_SECRET}",
+        "defaultScope": "openid profile email"
+      }
+    },
+    {
+      "alias": "facebook",
+      "providerId": "facebook",
+      "enabled": true,
+      "trustEmail": true,
+      "storeToken": true,
+      "addReadTokenRoleOnCreate": false,
+      "authenticateByDefault": false,
+      "linkOnly": false,
+      "firstBrokerLoginFlowAlias": "first broker login",
+      "config": {
+        "clientId": "${FACEBOOK_APP_ID}",
+        "clientSecret": "${FACEBOOK_APP_SECRET}",
+        "defaultScope": "email public_profile"
+      }
+    }
+  ],
+
+  "clients": [
+    {
+      "clientId": "mockten-react-client",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "redirectUris": [
+        "http://localhost/*"
+      ],
+      "webOrigins": [
+        "http://localhost"
+      ],
+      "directAccessGrantsEnabled": true,
+      "defaultClientScopes": [
+        "web-origins",
+        "role_list",
+        "profile",
+        "email"
+      ],
+      "attributes": {
+        "access.token": "true"
+      }
+    }
+  ],
+  "clientScopes": [
+    {
+      "name": "profile",
+      "description": "profile scope",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "username",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "username",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "preferred_username",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "roles",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    },
+    {
+      "name": "email",
+      "description": "email scope",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "email",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "email",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "email",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "email_verified",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "emailVerified",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "email_verified",
+            "jsonType.label": "boolean"
+          }
+        }
+      ]
+    }
+  ],
+
+  "roles": {
+    "realm": [
+      {
+        "name": "seller",
+        "description": "Role for sellers"
+      },
+      {
+        "name": "customer",
+        "description": "Role for customers"
+      }
+    ]
+  },
+
+  "groups": [
+    {
+      "name": "Seller"
+    },
+    {
+      "name": "Customer"
+    },
+    {
+      "name": "admin-group",
+      "realmRoles": [],
+      "clientRoles": {
+        "realm-management": [
+          "realm-admin"
+        ]
+      }
+    }
+  ],
+
+  "users": [
+    {
+      "username": "superadmin",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "superadmin@example.com",
+      "firstName": "Super",
+      "lastName": "Admin",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "superadmin"
+        }
+      ],
+      "groups": [
+        "admin-group"
+      ]
+    },
+    {
+      "username": "Health company",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "healthcompany@example.com",
+      "firstName": "Wei",
+      "lastName": "Li",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "healthcompany"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": ["Sells health and wellness products"]
+      }
+    },
+    {
+      "username": "Sports company",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "sportscompany@example.com",
+      "firstName": "Emily",
+      "lastName": "Johnson",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "sportscompany"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": ["Provider of sports and fitness gear"]
+      }
+    },
+    {
+      "username": "Toy company",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "toycompany@example.com",
+      "firstName": "Pierre",
+      "lastName": "Dubois",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "toycompany"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": ["Distributor of children's toys and games"]
+      }
+    },
+    {
+      "username": "Headphone company",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "headphonecompany@example.com",
+      "firstName": "Haruki",
+      "lastName": "Saito",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "headphonecompany"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": ["Manufacturer of high-quality audio equipment"]
+      }
+    },
+    {
+      "username": "Greengrocer",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "greengrocer@example.com",
+      "firstName": "Ananya",
+      "lastName": "Patel",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "greengrocer"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": ["Fresh produce and organic food supplier"]
+      }
+    }
+  ]
+}
