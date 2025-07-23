@@ -4,3 +4,4 @@ local/local.tfvars
 */.terraform*
 */terraform*
 */*.tfstate
+common/k8s/uam/config.json
