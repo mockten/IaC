@@ -36,8 +36,8 @@
       "linkOnly": false,
       "firstBrokerLoginFlowAlias": "first broker login",
       "config": {
-        "clientId": "${FACEBOOK_APP_ID}",
-        "clientSecret": "${FACEBOOK_APP_SECRET}",
+        "clientId": "${FACEBOOK_CLIENT_ID}",
+        "clientSecret": "${FACEBOOK_CLIENT_SECRET}",
         "defaultScope": "email public_profile"
       }
     }
