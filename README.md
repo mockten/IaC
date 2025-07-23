@@ -11,6 +11,26 @@ Before proceeding, ensure you have the following tools installed on your system:
 - [Terraform](https://www.terraform.io/downloads.html)
 - [gotask](https://taskfile.dev/#/installation)
 
+## Google Authentication Setup
+To use Goole SignUp/SignIn, please create Google auth client like below.
+<img width="1594" height="1292" alt="CleanShot 2025-07-22 at 13 16 15@2x" src="https://github.com/user-attachments/assets/0769cb4f-53b3-4558-be68-53ddffb899ce" />
+| Setting                   | Value                                                |
+|---------------------------|------------------------------------------------------|
+| Application type          | Web application                                    |
+| Authorized Redirect URIs | http://localhost/api/uam/broker/google/endpoint     |
+
+Once you get Client ID/secret, please replace the value in common/k8s/uam/config.json
+<img width="1098" height="492" alt="CleanShot 2025-07-23 at 21 47 39@2x" src="https://github.com/user-attachments/assets/b417cfc0-266c-4312-9e05-e84624c900dc" />
+
+
+
+## Facebook Authentication Setup
+To use Facebook SignUp/SignIn, please create App in [Facebook Developer](https://developers.facebook.com/apps/)
+<img width="2016" height="754" alt="CleanShot 2025-07-22 at 16 38 38@2x" src="https://github.com/user-attachments/assets/b4b95c3b-b75d-4a2e-bf05-464df6c0c09e" />
+Once you get App ID/secret, please replace the value in common/k8s/uam/config.json
+<img width="1108" height="516" alt="CleanShot 2025-07-23 at 21 48 26@2x" src="https://github.com/user-attachments/assets/75d1ebb7-8bae-401c-a429-773bf6aa0b67" />
+
+
 ## Verify Installation
 
 To confirm that both `terraform` and `gotask` are correctly installed, run the following commands:
