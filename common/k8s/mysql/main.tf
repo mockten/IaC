@@ -1,25 +1,31 @@
-resource "kubernetes_deployment" "mysql" {
+resource "kubernetes_stateful_set" "mysql" {
   metadata {
-    name      = "mysql-deploy"
+    name      = "mysql-sts"
     namespace = "default"
   }
+
   spec {
-    replicas = 1
+    service_name = "mysql"
+    replicas     = 1
+
     selector {
       match_labels = {
         app = "mysql"
       }
     }
+
     template {
       metadata {
         labels = {
           app = "mysql"
         }
       }
+
       spec {
         image_pull_secrets {
           name = var.secret_name
         }
+
         container {
           name  = "mysql"
           image = "ghcr.io/mockten/mysql:latest"
@@ -27,6 +33,7 @@ resource "kubernetes_deployment" "mysql" {
           port {
             container_port = 3306
           }
+
           env {
             name  = "MYSQL_ROOT_PASSWORD"
             value = "rootpassword"
@@ -42,6 +49,25 @@ resource "kubernetes_deployment" "mysql" {
           env {
             name  = "MYSQL_PASSWORD"
             value = "mocktenpassword"
+          }
+
+          volume_mount {
+            name       = "mysql-storage"
+            mount_path = "/var/lib/mysql"
+          }
+        }
+      }
+    }
+
+    volume_claim_template {
+      metadata {
+        name = "mysql-storage"
+      }
+      spec {
+        access_modes = ["ReadWriteOnce"]
+        resources {
+          requests = {
+            storage = "5Gi"
           }
         }
       }
