@@ -24,26 +24,26 @@ resource "kubernetes_deployment" "product" {
           name  = "product"
           image = "ghcr.io/mockten/product:latest"
           port {
-            container_port = 50052
+            container_port = 50051
           }
         }
       }
     }
   }
 }
-resource "kubernetes_service" "searchitem" {
+resource "kubernetes_service" "product" {
   metadata {
-    name      = "searchitem-service"
+    name      = "product-service"
     namespace = "default"
   }
   spec {
     selector = {
-      app = "searchitem"
+      app = "product"
     }
     port {
       name        = "http"
-      port        = 50051
-      target_port = 50051
+      port        = 50052
+      target_port = 50052
     }
   }
 }
