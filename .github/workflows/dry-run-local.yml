@@ -1,4 +1,4 @@
-name: DryRun(minikube)
+name: Minikube DryRun
 
 on:
   push:

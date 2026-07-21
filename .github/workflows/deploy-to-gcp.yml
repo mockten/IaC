@@ -1,4 +1,4 @@
-name: Deploy(GCP)
+name: GCP 2.Deploy
 
 # Manual, like RELEASE. Brings the mockten platform up on GKE.
 # Tearing it down lives in destroy-gcp.yml — deliberately a separate workflow,

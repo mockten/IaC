@@ -1,4 +1,4 @@
-name: DryRun(AWS)
+name: AWS 1.DryRun
 
 # DRAFT — mirrors DryRun(GCP). The aws/ root is written but never applied, so this
 # is scaffolding: it will need an AWS account, an S3 state bucket + DynamoDB lock,

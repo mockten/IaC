@@ -1,4 +1,4 @@
-name: Deploy(AWS)
+name: AWS 2.Deploy
 
 # DRAFT — mirrors Deploy(GCP). Brings the mockten platform up on EKS. The aws/ root
 # is written but has never been applied; expect to fix small things on first run.

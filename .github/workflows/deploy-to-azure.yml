@@ -1,4 +1,4 @@
-name: Deploy(Azure)
+name: Azure 2.Deploy
 
 on:
   workflow_dispatch:

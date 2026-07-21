@@ -1,4 +1,4 @@
-name: Destroy(AWS)
+name: AWS 3.Destroy
 
 # DRAFT — mirrors Destroy(GCP). Tears the whole AWS environment down. Separate from
 # Deploy(AWS) on purpose, and demands the state-bucket name be typed in, so a destroy

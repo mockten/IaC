@@ -1,4 +1,4 @@
-name: Destroy(GCP)
+name: GCP 3.Destroy
 
 # Tears the whole GCP environment down. Separate from Deploy(GCP) on purpose:
 # a destroy sitting in a dropdown next to "apply" is one mis-click from deleting
