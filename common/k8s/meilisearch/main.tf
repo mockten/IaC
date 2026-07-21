@@ -1,6 +1,6 @@
 resource "kubernetes_deployment" "meilisearch" {
   metadata {
-    name = "meilisearch-deploy"
+    name      = "meilisearch-deploy"
     namespace = "default"
   }
   spec {

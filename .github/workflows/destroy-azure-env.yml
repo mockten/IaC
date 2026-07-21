@@ -15,6 +15,10 @@ jobs:
       ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      # Terraform reads TF_VAR_<name> natively, so no tfvars file is written to
+      # the runner's disk and no secret goes through shell quoting.
+      # `azure` only declares repo_pat; the github_* vars live in `local`.
+      TF_VAR_repo_pat: ${{ secrets.MOCKTEN_REPO_PAT }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
@@ -23,18 +27,11 @@ jobs:
       uses: hashicorp/setup-terraform@v2
       with:
         terraform_version: 1.9.5
-        
-    - name: Set up Terraform variables
-      run: |
-        echo "github_username = \"${{ secrets.GITHUB_USERNAME }}\"" > temp.tfvars
-        echo "github_token    = \"${{ secrets.GITHUB_TOKEN }}\"" >> temp.tfvars
-        echo "github_email    = \"${{ secrets.GITHUB_EMAIL }}\"" >> temp.tfvars
-        echo "repo_pat = \"${{ secrets.MOCKTEN_REPO_PAT }}\"" >> temp.tfvars
 
     - name: Initialize Terraform for Azure
       working-directory: azure
-      run: terraform init -var-file="../temp.tfvars"
-      
+      run: terraform init
+
     - name: Terraform Destroy for Azure
       working-directory: azure
-      run: terraform destroy -var-file="../temp.tfvars" -auto-approve
+      run: terraform destroy -auto-approve

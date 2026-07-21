@@ -1,57 +1,247 @@
-resource "kubernetes_persistent_volume" "local" {
+
+# ── metrics-server ───────────────────────────────────────────────────────────
+# Transcribed from the upstream components.yaml (v0.9.0). It is deployed here
+# rather than with `kubectl apply -f` so that `terraform destroy` actually
+# removes it: anything applied out of band survives the destroy and has to be
+# cleaned up by hand.
+#
+# Managed clusters (AKS/GKE) ship metrics-server already, so this is local-only,
+# like the ingress controller below. Without it the dashboard reports 0 for pod
+# CPU/memory and every other panel still works.
+
+locals {
+  metrics_server_labels = {
+    k8s-app = "metrics-server"
+  }
+}
+
+resource "kubernetes_service_account" "metrics_server" {
   metadata {
-    name = "local-pv"
+    name      = "metrics-server"
+    namespace = "kube-system"
+    labels    = local.metrics_server_labels
+  }
+}
+
+resource "kubernetes_cluster_role" "aggregated_metrics_reader" {
+  metadata {
+    name = "system:aggregated-metrics-reader"
+    labels = merge(local.metrics_server_labels, {
+      "rbac.authorization.k8s.io/aggregate-to-admin" = "true"
+      "rbac.authorization.k8s.io/aggregate-to-edit"  = "true"
+      "rbac.authorization.k8s.io/aggregate-to-view"  = "true"
+    })
+  }
+  rule {
+    api_groups = ["metrics.k8s.io"]
+    resources  = ["pods", "nodes"]
+    verbs      = ["get", "list", "watch"]
+  }
+}
+
+resource "kubernetes_cluster_role" "metrics_server" {
+  metadata {
+    name   = "system:metrics-server"
+    labels = local.metrics_server_labels
+  }
+  rule {
+    api_groups = [""]
+    resources  = ["nodes/metrics"]
+    verbs      = ["get"]
+  }
+  rule {
+    api_groups = [""]
+    resources  = ["pods", "nodes"]
+    verbs      = ["get", "list", "watch"]
+  }
+}
+
+# Lets metrics-server read the extension-apiserver-authentication ConfigMap,
+# which it needs to authenticate requests proxied from the API server.
+resource "kubernetes_role_binding" "metrics_server_auth_reader" {
+  metadata {
+    name      = "metrics-server-auth-reader"
+    namespace = "kube-system"
+    labels    = local.metrics_server_labels
+  }
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "Role"
+    name      = "extension-apiserver-authentication-reader"
+  }
+  subject {
+    kind      = "ServiceAccount"
+    name      = kubernetes_service_account.metrics_server.metadata[0].name
+    namespace = "kube-system"
+  }
+}
+
+resource "kubernetes_cluster_role_binding" "metrics_server_auth_delegator" {
+  metadata {
+    name   = "metrics-server:system:auth-delegator"
+    labels = local.metrics_server_labels
+  }
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "ClusterRole"
+    name      = "system:auth-delegator"
+  }
+  subject {
+    kind      = "ServiceAccount"
+    name      = kubernetes_service_account.metrics_server.metadata[0].name
+    namespace = "kube-system"
+  }
+}
+
+resource "kubernetes_cluster_role_binding" "metrics_server" {
+  metadata {
+    name   = "system:metrics-server"
+    labels = local.metrics_server_labels
+  }
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "ClusterRole"
+    name      = kubernetes_cluster_role.metrics_server.metadata[0].name
+  }
+  subject {
+    kind      = "ServiceAccount"
+    name      = kubernetes_service_account.metrics_server.metadata[0].name
+    namespace = "kube-system"
+  }
+}
+
+resource "kubernetes_service" "metrics_server" {
+  metadata {
+    name      = "metrics-server"
+    namespace = "kube-system"
+    labels    = local.metrics_server_labels
   }
   spec {
-    capacity = {
-      storage = "1Gi"
+    selector = local.metrics_server_labels
+    port {
+      name        = "https"
+      port        = 443
+      protocol    = "TCP"
+      target_port = "https"
     }
-    access_modes = ["ReadWriteOnce"]
-    persistent_volume_reclaim_policy = "Retain"
-    volume_mode = "Filesystem"
-    persistent_volume_source {
-      host_path {
-        path = "/mnt/data"
+  }
+}
+
+resource "kubernetes_deployment" "metrics_server" {
+  metadata {
+    name      = "metrics-server"
+    namespace = "kube-system"
+    labels    = local.metrics_server_labels
+  }
+  spec {
+    selector {
+      match_labels = local.metrics_server_labels
+    }
+    strategy {
+      rolling_update {
+        max_unavailable = 0
+      }
+    }
+    template {
+      metadata {
+        labels = local.metrics_server_labels
+      }
+      spec {
+        service_account_name            = kubernetes_service_account.metrics_server.metadata[0].name
+        priority_class_name             = "system-cluster-critical"
+        node_selector                   = { "kubernetes.io/os" = "linux" }
+        automount_service_account_token = true
+
+        container {
+          name              = "metrics-server"
+          image             = "registry.k8s.io/metrics-server/metrics-server:v0.9.0"
+          image_pull_policy = "IfNotPresent"
+          args = [
+            "--cert-dir=/tmp",
+            "--secure-port=10250",
+            "--kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname",
+            "--kubelet-use-node-status-port",
+            "--metric-resolution=15s",
+            # docker-desktop's kubelet serves a self-signed cert that
+            # metrics-server will not trust, so it never becomes ready without
+            # this. Not in upstream components.yaml.
+            "--kubelet-insecure-tls",
+          ]
+          port {
+            name           = "https"
+            container_port = 10250
+            protocol       = "TCP"
+          }
+          liveness_probe {
+            http_get {
+              path   = "/livez"
+              port   = "https"
+              scheme = "HTTPS"
+            }
+            period_seconds    = 10
+            failure_threshold = 3
+          }
+          readiness_probe {
+            http_get {
+              path   = "/readyz"
+              port   = "https"
+              scheme = "HTTPS"
+            }
+            initial_delay_seconds = 20
+            period_seconds        = 10
+            failure_threshold     = 3
+          }
+          resources {
+            requests = {
+              cpu    = "100m"
+              memory = "200Mi"
+            }
+          }
+          security_context {
+            allow_privilege_escalation = false
+            read_only_root_filesystem  = true
+            run_as_non_root            = true
+            run_as_user                = 1000
+            capabilities {
+              drop = ["ALL"]
+            }
+            seccomp_profile {
+              type = "RuntimeDefault"
+            }
+          }
+          volume_mount {
+            name       = "tmp-dir"
+            mount_path = "/tmp"
+          }
+        }
+        volume {
+          name = "tmp-dir"
+          empty_dir {}
+        }
       }
     }
   }
 }
 
-resource "kubernetes_persistent_volume_claim" "local" {
+resource "kubernetes_api_service_v1" "metrics" {
   metadata {
-    name = "local-pvc"
+    name   = "v1beta1.metrics.k8s.io"
+    labels = local.metrics_server_labels
   }
   spec {
-    access_modes = ["ReadWriteOnce"]
-    resources {
-      requests = {
-        storage = "1Gi"
-      }
+    group                    = "metrics.k8s.io"
+    group_priority_minimum   = 100
+    version                  = "v1beta1"
+    version_priority         = 100
+    insecure_skip_tls_verify = true
+    service {
+      name      = kubernetes_service.metrics_server.metadata[0].name
+      namespace = "kube-system"
     }
   }
 }
 
-resource "kubernetes_pod" "local" {
-  metadata {
-    name = "local-pv-pod"
-  }
-  spec {
-    container {
-      name  = "local-pv-container"
-      image = "nginx"
-      volume_mount {
-        mount_path = "/usr/share/nginx/html"
-        name       = "local-storage"
-      }
-    }
-    volume {
-      name = "local-storage"
-      persistent_volume_claim {
-        claim_name = "local-pvc"
-      }
-    }
-  }
-}
+# ── ingress-nginx ────────────────────────────────────────────────────────────
 
 resource "kubernetes_namespace" "ingress_nginx" {
   metadata {
@@ -139,7 +329,7 @@ resource "kubernetes_deployment" "nginx_ingress_controller" {
         container {
           name  = "nginx-ingress-controller"
           image = "k8s.gcr.io/ingress-nginx/controller:v1.1.1"
-          args  = [
+          args = [
             "/nginx-ingress-controller",
             "--configmap=$(POD_NAMESPACE)/nginx-configuration",
             "--ingress-class=nginx"
@@ -195,6 +385,7 @@ resource "kubernetes_service" "nginx_ingress" {
     name      = "nginx-ingress"
     namespace = kubernetes_namespace.ingress_nginx.metadata[0].name
   }
+  wait_for_load_balancer = false
   spec {
     type = "LoadBalancer"
     selector = {
@@ -215,7 +406,7 @@ resource "kubernetes_service" "nginx_ingress" {
 
 resource "kubernetes_ingress_v1" "ecfront" {
   metadata {
-    name = "ecfront-ingress"
+    name      = "ecfront-ingress"
     namespace = "default"
     annotations = {
     }
@@ -226,13 +417,23 @@ resource "kubernetes_ingress_v1" "ecfront" {
       host = "localhost"
       http {
         path {
+          path      = "/api/test/"
+          path_type = "Prefix"
+          backend {
+            service {
+              name = "backdoor-service"
+              port {
+                number = 8080
+              }
+            }
+          }
+        }
+        path {
           path = "/api/"
           backend {
             service {
               name = "apigw-service"
-              port {
-                number = 80
-              }
+              port { number = 80 }
             }
           }
         }
@@ -248,7 +449,7 @@ resource "kubernetes_ingress_v1" "ecfront" {
           }
         }
         path {
-          path = "/realms/mockten-realm-dev/broker/"
+          path      = "/realms/mockten-realm-dev/broker/"
           path_type = "Prefix"
           backend {
             service {
@@ -260,7 +461,7 @@ resource "kubernetes_ingress_v1" "ecfront" {
           }
         }
         path {
-          path = "/realms/mockten-realm-dev/login-actions/"
+          path      = "/realms/mockten-realm-dev/login-actions/"
           path_type = "Prefix"
           backend {
             service {
@@ -270,7 +471,36 @@ resource "kubernetes_ingress_v1" "ecfront" {
               }
             }
           }
-        }                
+        }
+      }
+    }
+  }
+}
+
+resource "kubernetes_ingress_v1" "dashboard" {
+  metadata {
+    name      = "dashboard-ingress"
+    namespace = "default"
+    annotations = {
+      "nginx.ingress.kubernetes.io/rewrite-target" = "/$1"
+      "nginx.ingress.kubernetes.io/use-regex"      = "true"
+    }
+  }
+  spec {
+    ingress_class_name = "nginx"
+    rule {
+      host = "localhost"
+      http {
+        path {
+          path      = "/dashboard/(.*)"
+          path_type = "ImplementationSpecific"
+          backend {
+            service {
+              name = "dashboard-service"
+              port { number = 3001 }
+            }
+          }
+        }
       }
     }
   }

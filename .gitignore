@@ -1,7 +1,31 @@
 .terraform/
 */.terraform/
-local/local.tfvars
+*.tfvars
 */.terraform*
 */terraform*
 */*.tfstate
 common/k8s/uam/config.json
+.photos_downloaded
+
+# Env files: ignore .env and every variant/backup, but keep the committed template.
+.env
+.env.*
+.env.bak.*
+!.env.example
+
+# Internal working / handoff docs — not part of the IaC, never commit.
+HANDOFF_TO_ANTIGRAVITY.md
+IAC_STATUS_FOR_MOCKTEN.md
+MOCKTEN_REQUESTS.md
+PROGRESS_LOG.md
+
+# Contains a live registrar API token in plain text — scratch script, never commit.
+testapi.sh
+
+# Local Claude Code working dir (per-user settings, launch config) — not part of the IaC.
+.claude/
+
+# Service-account keys / any credential JSON.
+*-key.json
+account.json
+gcs.json

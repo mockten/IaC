@@ -7,7 +7,6 @@
   "verifyEmail": false,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
-
   "identityProviders": [
     {
       "alias": "google",
@@ -20,8 +19,8 @@
       "linkOnly": false,
       "firstBrokerLoginFlowAlias": "first broker login",
       "config": {
-        "clientId": "${GOOGLE_CLIENT_ID}",
-        "clientSecret": "${GOOGLE_CLIENT_SECRET}",
+        "clientId": "GOOGLE_CLIENT_ID",
+        "clientSecret": "GOOGLE_CLIENT_SECRET",
         "defaultScope": "openid profile email"
       }
     },
@@ -36,25 +35,20 @@
       "linkOnly": false,
       "firstBrokerLoginFlowAlias": "first broker login",
       "config": {
-        "clientId": "${FACEBOOK_CLIENT_ID}",
-        "clientSecret": "${FACEBOOK_CLIENT_SECRET}",
+        "clientId": "FACEBOOK_CLIENT_ID",
+        "clientSecret": "FACEBOOK_CLIENT_SECRET",
         "defaultScope": "email public_profile"
       }
     }
   ],
-
   "clients": [
     {
       "clientId": "mockten-react-client",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": true,
-      "redirectUris": [
-        "http://localhost/*"
-      ],
-      "webOrigins": [
-        "http://localhost"
-      ],
+      "redirectUris": ${jsonencode(redirect_uris)},
+      "webOrigins": ${jsonencode(web_origins)},
       "directAccessGrantsEnabled": true,
       "defaultClientScopes": [
         "web-origins",
@@ -147,7 +141,6 @@
       ]
     }
   ],
-
   "roles": {
     "realm": [
       {
@@ -160,10 +153,12 @@
       }
     ]
   },
-
   "groups": [
     {
-      "name": "Seller"
+      "name": "Seller",
+      "realmRoles": [
+        "seller"
+      ]
     },
     {
       "name": "Customer"
@@ -178,7 +173,6 @@
       }
     }
   ],
-
   "users": [
     {
       "username": "superadmin",
@@ -217,7 +211,9 @@
         "seller"
       ],
       "attributes": {
-        "description": ["Sells health and wellness products"]
+        "description": [
+          "Sells health and wellness products"
+        ]
       }
     },
     {
@@ -240,7 +236,9 @@
         "seller"
       ],
       "attributes": {
-        "description": ["Provider of sports and fitness gear"]
+        "description": [
+          "Provider of sports and fitness gear"
+        ]
       }
     },
     {
@@ -263,7 +261,9 @@
         "seller"
       ],
       "attributes": {
-        "description": ["Distributor of children's toys and games"]
+        "description": [
+          "Distributor of children's toys and games"
+        ]
       }
     },
     {
@@ -286,7 +286,9 @@
         "seller"
       ],
       "attributes": {
-        "description": ["Manufacturer of high-quality audio equipment"]
+        "description": [
+          "Manufacturer of high-quality audio equipment"
+        ]
       }
     },
     {
@@ -309,8 +311,2854 @@
         "seller"
       ],
       "attributes": {
-        "description": ["Fresh produce and organic food supplier"]
+        "description": [
+          "Fresh produce and organic food supplier"
+        ]
+      }
+    },
+    {
+      "username": "cooking",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "cooking@example.com",
+      "firstName": "Cooking",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "cooking"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Cooking ingredients and sauces"
+        ]
+      }
+    },
+    {
+      "username": "drink",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "drink@example.com",
+      "firstName": "Drink",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "drink"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Beverages and canned drinks"
+        ]
+      }
+    },
+    {
+      "username": "food",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "food@example.com",
+      "firstName": "Food",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "food"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Processed food and ready-to-eat meals"
+        ]
+      }
+    },
+    {
+      "username": "vegetable",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "vegetable@example.com",
+      "firstName": "Vegetable",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "vegetable"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Fresh and frozen vegetables"
+        ]
+      }
+    },
+    {
+      "username": "fruit",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "fruit@example.com",
+      "firstName": "Fruit",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "fruit"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Fresh fruit and specialty fruit items"
+        ]
+      }
+    },
+    {
+      "username": "jam",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "jam@example.com",
+      "firstName": "Jam",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "jam"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Handmade jams and marmalades"
+        ]
+      }
+    },
+    {
+      "username": "sweets",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "sweets@example.com",
+      "firstName": "Sweets",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "sweets"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Chocolate and confectionery products"
+        ]
+      }
+    },
+    {
+      "username": "space",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "space@example.com",
+      "firstName": "Space",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "space"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Space-themed foods and packs"
+        ]
+      }
+    },
+    {
+      "username": "water",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "water@example.com",
+      "firstName": "Water",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "water"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Bottled water and hydration items"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_001",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_001@example.com",
+      "firstName": "Liam",
+      "lastName": "Smith",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass001"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "07"
+        ],
+        "secondary_category": [
+          "08",
+          "04"
+        ],
+        "persona_group": [
+          "tech_lovers"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_002",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_002@example.com",
+      "firstName": "Olivia",
+      "lastName": "Johnson",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass002"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "07"
+        ],
+        "secondary_category": [
+          "08",
+          "04"
+        ],
+        "persona_group": [
+          "tech_lovers"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_003",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_003@example.com",
+      "firstName": "Noah",
+      "lastName": "Williams",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass003"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "07"
+        ],
+        "secondary_category": [
+          "08",
+          "04"
+        ],
+        "persona_group": [
+          "tech_lovers"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_004",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_004@example.com",
+      "firstName": "Emma",
+      "lastName": "Brown",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass004"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "07"
+        ],
+        "secondary_category": [
+          "08",
+          "04"
+        ],
+        "persona_group": [
+          "tech_lovers"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_005",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_005@example.com",
+      "firstName": "Oliver",
+      "lastName": "Jones",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass005"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "07"
+        ],
+        "secondary_category": [
+          "08",
+          "04"
+        ],
+        "persona_group": [
+          "tech_lovers"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_006",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_006@example.com",
+      "firstName": "Ava",
+      "lastName": "Garcia",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass006"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "07"
+        ],
+        "secondary_category": [
+          "08",
+          "04"
+        ],
+        "persona_group": [
+          "tech_lovers"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_007",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_007@example.com",
+      "firstName": "Elijah",
+      "lastName": "Miller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass007"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "07"
+        ],
+        "secondary_category": [
+          "08",
+          "04"
+        ],
+        "persona_group": [
+          "tech_lovers"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_008",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_008@example.com",
+      "firstName": "Charlotte",
+      "lastName": "Davis",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass008"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "07"
+        ],
+        "secondary_category": [
+          "08",
+          "04"
+        ],
+        "persona_group": [
+          "tech_lovers"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_009",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_009@example.com",
+      "firstName": "William",
+      "lastName": "Rodriguez",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass009"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "07"
+        ],
+        "secondary_category": [
+          "08",
+          "04"
+        ],
+        "persona_group": [
+          "tech_lovers"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_010",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_010@example.com",
+      "firstName": "Sophia",
+      "lastName": "Martinez",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass010"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "07"
+        ],
+        "secondary_category": [
+          "08",
+          "04"
+        ],
+        "persona_group": [
+          "tech_lovers"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_011",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_011@example.com",
+      "firstName": "James",
+      "lastName": "Hernandez",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass011"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "12"
+        ],
+        "secondary_category": [
+          "08",
+          "16"
+        ],
+        "persona_group": [
+          "sports_fans"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_012",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_012@example.com",
+      "firstName": "Amelia",
+      "lastName": "Lopez",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass012"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "12"
+        ],
+        "secondary_category": [
+          "08",
+          "16"
+        ],
+        "persona_group": [
+          "sports_fans"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_013",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_013@example.com",
+      "firstName": "Benjamin",
+      "lastName": "Gonzalez",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass013"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "12"
+        ],
+        "secondary_category": [
+          "08",
+          "16"
+        ],
+        "persona_group": [
+          "sports_fans"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_014",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_014@example.com",
+      "firstName": "Isabella",
+      "lastName": "Wilson",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass014"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "12"
+        ],
+        "secondary_category": [
+          "08",
+          "16"
+        ],
+        "persona_group": [
+          "sports_fans"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_015",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_015@example.com",
+      "firstName": "Lucas",
+      "lastName": "Anderson",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass015"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "12"
+        ],
+        "secondary_category": [
+          "08",
+          "16"
+        ],
+        "persona_group": [
+          "sports_fans"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_016",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_016@example.com",
+      "firstName": "Mia",
+      "lastName": "Thomas",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass016"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "12"
+        ],
+        "secondary_category": [
+          "08",
+          "16"
+        ],
+        "persona_group": [
+          "sports_fans"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_017",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_017@example.com",
+      "firstName": "Henry",
+      "lastName": "Taylor",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass017"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "12"
+        ],
+        "secondary_category": [
+          "08",
+          "16"
+        ],
+        "persona_group": [
+          "sports_fans"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_018",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_018@example.com",
+      "firstName": "Evelyn",
+      "lastName": "Moore",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass018"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "12"
+        ],
+        "secondary_category": [
+          "08",
+          "16"
+        ],
+        "persona_group": [
+          "sports_fans"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_019",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_019@example.com",
+      "firstName": "Alexander",
+      "lastName": "Jackson",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass019"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "12"
+        ],
+        "secondary_category": [
+          "08",
+          "16"
+        ],
+        "persona_group": [
+          "sports_fans"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_020",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_020@example.com",
+      "firstName": "Harper",
+      "lastName": "Martin",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass020"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "12"
+        ],
+        "secondary_category": [
+          "08",
+          "16"
+        ],
+        "persona_group": [
+          "sports_fans"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_021",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_021@example.com",
+      "firstName": "Mason",
+      "lastName": "Lee",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass021"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "03"
+        ],
+        "secondary_category": [
+          "13",
+          "16"
+        ],
+        "persona_group": [
+          "foodies"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_022",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_022@example.com",
+      "firstName": "Camila",
+      "lastName": "Perez",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass022"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "03"
+        ],
+        "secondary_category": [
+          "13",
+          "16"
+        ],
+        "persona_group": [
+          "foodies"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_023",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_023@example.com",
+      "firstName": "Michael",
+      "lastName": "Thompson",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass023"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "03"
+        ],
+        "secondary_category": [
+          "13",
+          "16"
+        ],
+        "persona_group": [
+          "foodies"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_024",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_024@example.com",
+      "firstName": "Gianna",
+      "lastName": "White",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass024"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "03"
+        ],
+        "secondary_category": [
+          "13",
+          "16"
+        ],
+        "persona_group": [
+          "foodies"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_025",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_025@example.com",
+      "firstName": "Ethan",
+      "lastName": "Harris",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass025"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "03"
+        ],
+        "secondary_category": [
+          "13",
+          "16"
+        ],
+        "persona_group": [
+          "foodies"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_026",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_026@example.com",
+      "firstName": "Abigail",
+      "lastName": "Sanchez",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass026"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "03"
+        ],
+        "secondary_category": [
+          "13",
+          "16"
+        ],
+        "persona_group": [
+          "foodies"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_027",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_027@example.com",
+      "firstName": "Daniel",
+      "lastName": "Clark",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass027"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "03"
+        ],
+        "secondary_category": [
+          "13",
+          "16"
+        ],
+        "persona_group": [
+          "foodies"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_028",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_028@example.com",
+      "firstName": "Luna",
+      "lastName": "Ramirez",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass028"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "03"
+        ],
+        "secondary_category": [
+          "13",
+          "16"
+        ],
+        "persona_group": [
+          "foodies"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_029",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_029@example.com",
+      "firstName": "Jacob",
+      "lastName": "Lewis",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass029"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "03"
+        ],
+        "secondary_category": [
+          "13",
+          "16"
+        ],
+        "persona_group": [
+          "foodies"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_030",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_030@example.com",
+      "firstName": "Ella",
+      "lastName": "Robinson",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass030"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "03"
+        ],
+        "secondary_category": [
+          "13",
+          "16"
+        ],
+        "persona_group": [
+          "foodies"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_031",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_031@example.com",
+      "firstName": "Logan",
+      "lastName": "Walker",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass031"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "01"
+        ],
+        "secondary_category": [
+          "02",
+          "08"
+        ],
+        "persona_group": [
+          "book_worms"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_032",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_032@example.com",
+      "firstName": "Elizabeth",
+      "lastName": "Young",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass032"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "01"
+        ],
+        "secondary_category": [
+          "02",
+          "08"
+        ],
+        "persona_group": [
+          "book_worms"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_033",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_033@example.com",
+      "firstName": "Jackson",
+      "lastName": "Allen",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass033"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "01"
+        ],
+        "secondary_category": [
+          "02",
+          "08"
+        ],
+        "persona_group": [
+          "book_worms"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_034",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_034@example.com",
+      "firstName": "Sofia",
+      "lastName": "King",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass034"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "01"
+        ],
+        "secondary_category": [
+          "02",
+          "08"
+        ],
+        "persona_group": [
+          "book_worms"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_035",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_035@example.com",
+      "firstName": "Levi",
+      "lastName": "Wright",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass035"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "01"
+        ],
+        "secondary_category": [
+          "02",
+          "08"
+        ],
+        "persona_group": [
+          "book_worms"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_036",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_036@example.com",
+      "firstName": "Avery",
+      "lastName": "Scott",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass036"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "01"
+        ],
+        "secondary_category": [
+          "02",
+          "08"
+        ],
+        "persona_group": [
+          "book_worms"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_037",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_037@example.com",
+      "firstName": "Sebastian",
+      "lastName": "Torres",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass037"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "01"
+        ],
+        "secondary_category": [
+          "02",
+          "08"
+        ],
+        "persona_group": [
+          "book_worms"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_038",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_038@example.com",
+      "firstName": "Scarlett",
+      "lastName": "Nguyen",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass038"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "01"
+        ],
+        "secondary_category": [
+          "02",
+          "08"
+        ],
+        "persona_group": [
+          "book_worms"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_039",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_039@example.com",
+      "firstName": "Mateo",
+      "lastName": "Hill",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass039"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "10",
+          "11"
+        ],
+        "secondary_category": [
+          "09",
+          "05"
+        ],
+        "persona_group": [
+          "family_buyers"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_040",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_040@example.com",
+      "firstName": "Emily",
+      "lastName": "Flores",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass040"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "10",
+          "11"
+        ],
+        "secondary_category": [
+          "09",
+          "05"
+        ],
+        "persona_group": [
+          "family_buyers"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_041",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_041@example.com",
+      "firstName": "Jack",
+      "lastName": "Green",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass041"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "10",
+          "11"
+        ],
+        "secondary_category": [
+          "09",
+          "05"
+        ],
+        "persona_group": [
+          "family_buyers"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_042",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_042@example.com",
+      "firstName": "Aria",
+      "lastName": "Adams",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass042"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "10",
+          "11"
+        ],
+        "secondary_category": [
+          "09",
+          "05"
+        ],
+        "persona_group": [
+          "family_buyers"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_043",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_043@example.com",
+      "firstName": "Owen",
+      "lastName": "Nelson",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass043"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "10",
+          "11"
+        ],
+        "secondary_category": [
+          "09",
+          "05"
+        ],
+        "persona_group": [
+          "family_buyers"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_044",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_044@example.com",
+      "firstName": "Penelope",
+      "lastName": "Baker",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass044"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "10",
+          "11"
+        ],
+        "secondary_category": [
+          "09",
+          "05"
+        ],
+        "persona_group": [
+          "family_buyers"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_045",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_045@example.com",
+      "firstName": "Theodore",
+      "lastName": "Hall",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass045"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "10",
+          "11"
+        ],
+        "secondary_category": [
+          "09",
+          "05"
+        ],
+        "persona_group": [
+          "family_buyers"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_046",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_046@example.com",
+      "firstName": "Chloe",
+      "lastName": "Rivera",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass046"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "06"
+        ],
+        "secondary_category": [
+          "13",
+          "15"
+        ],
+        "persona_group": [
+          "fashion_lovers"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_047",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_047@example.com",
+      "firstName": "Aiden",
+      "lastName": "Campbell",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass047"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "06"
+        ],
+        "secondary_category": [
+          "13",
+          "15"
+        ],
+        "persona_group": [
+          "fashion_lovers"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_048",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_048@example.com",
+      "firstName": "Layla",
+      "lastName": "Mitchell",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass048"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "06"
+        ],
+        "secondary_category": [
+          "13",
+          "15"
+        ],
+        "persona_group": [
+          "fashion_lovers"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_049",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_049@example.com",
+      "firstName": "Samuel",
+      "lastName": "Carter",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass049"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "06"
+        ],
+        "secondary_category": [
+          "13",
+          "15"
+        ],
+        "persona_group": [
+          "fashion_lovers"
+        ]
+      }
+    },
+    {
+      "username": "dev_user_050",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev_user_050@example.com",
+      "firstName": "Mildred",
+      "lastName": "Roberts",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devpass050"
+        }
+      ],
+      "groups": [
+        "Customer"
+      ],
+      "realmRoles": [
+        "customer"
+      ],
+      "attributes": {
+        "primary_category": [
+          "06"
+        ],
+        "secondary_category": [
+          "13",
+          "15"
+        ],
+        "persona_group": [
+          "fashion_lovers"
+        ]
+      }
+    },
+    {
+      "username": "bookstore",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "bookstore@example.com",
+      "firstName": "Bookstore Co.",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "bookstore"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Bookstore Co."
+        ]
+      }
+    },
+    {
+      "username": "novel_shop",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "novel_shop@example.com",
+      "firstName": "Novel Shop",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "novel_shop"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Novel Shop"
+        ]
+      }
+    },
+    {
+      "username": "publisher",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "publisher@example.com",
+      "firstName": "Mainstream Publishing",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "publisher"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Mainstream Publishing"
+        ]
+      }
+    },
+    {
+      "username": "guitar_shop",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "guitar_shop@example.com",
+      "firstName": "Guitar Shop",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "guitar_shop"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Guitar Shop"
+        ]
+      }
+    },
+    {
+      "username": "music_store",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "music_store@example.com",
+      "firstName": "Classic Music Store",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "music_store"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Classic Music Store"
+        ]
+      }
+    },
+    {
+      "username": "vinyl_records",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "vinyl_records@example.com",
+      "firstName": "Vinyl Records",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "vinyl_records"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Vinyl Records"
+        ]
+      }
+    },
+    {
+      "username": "gamer_hub",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "gamer_hub@example.com",
+      "firstName": "Gamer Hub",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "gamer_hub"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Gamer Hub"
+        ]
+      }
+    },
+    {
+      "username": "console_shop",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "console_shop@example.com",
+      "firstName": "Console Shop Store",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "console_shop"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Console Shop Store"
+        ]
+      }
+    },
+    {
+      "username": "retro_games",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "retro_games@example.com",
+      "firstName": "Retro Games Shop",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "retro_games"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Retro Games Shop"
+        ]
+      }
+    },
+    {
+      "username": "furniture_co",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "furniture_co@example.com",
+      "firstName": "Furniture Co.",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "furniture_co"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Furniture Co."
+        ]
+      }
+    },
+    {
+      "username": "interior_shop",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "interior_shop@example.com",
+      "firstName": "Interior Design Shop",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "interior_shop"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Interior Design Shop"
+        ]
+      }
+    },
+    {
+      "username": "homewares",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "homewares@example.com",
+      "firstName": "Homewares Store",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "homewares"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Homewares Store"
+        ]
+      }
+    },
+    {
+      "username": "fashion_brand",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "fashion_brand@example.com",
+      "firstName": "Fashion Brand",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "fashion_brand"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Fashion Brand"
+        ]
+      }
+    },
+    {
+      "username": "streetwear",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "streetwear@example.com",
+      "firstName": "Streetwear Express",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "streetwear"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Streetwear Express"
+        ]
+      }
+    },
+    {
+      "username": "boutique",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "boutique@example.com",
+      "firstName": "Chic Boutique",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "boutique"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Chic Boutique"
+        ]
+      }
+    },
+    {
+      "username": "gadget_store",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "gadget_store@example.com",
+      "firstName": "Gadget Store",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "gadget_store"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Gadget Store"
+        ]
+      }
+    },
+    {
+      "username": "tech_hub",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "tech_hub@example.com",
+      "firstName": "Tech Hub Shop",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "tech_hub"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Tech Hub Shop"
+        ]
+      }
+    },
+    {
+      "username": "electronics_co",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "electronics_co@example.com",
+      "firstName": "Electronics Co.",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "electronics_co"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Electronics Co."
+        ]
+      }
+    },
+    {
+      "username": "hobby_world",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "hobby_world@example.com",
+      "firstName": "Hobby World",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "hobby_world"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Hobby World"
+        ]
+      }
+    },
+    {
+      "username": "craft_shop",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "craft_shop@example.com",
+      "firstName": "Craft Supplies Shop",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "craft_shop"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Craft Supplies Shop"
+        ]
+      }
+    },
+    {
+      "username": "diy_store",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "diy_store@example.com",
+      "firstName": "DIY Store",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "diy_store"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "DIY Store"
+        ]
+      }
+    },
+    {
+      "username": "toy_world",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "toy_world@example.com",
+      "firstName": "Toy World",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "toy_world"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Toy World"
+        ]
+      }
+    },
+    {
+      "username": "kids_fun",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "kids_fun@example.com",
+      "firstName": "Kids Fun Zone",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "kids_fun"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Kids Fun Zone"
+        ]
+      }
+    },
+    {
+      "username": "kidswear",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "kidswear@example.com",
+      "firstName": "Kidswear Outlet",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "kidswear"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Kidswear Outlet"
+        ]
+      }
+    },
+    {
+      "username": "schoolsupply",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "schoolsupply@example.com",
+      "firstName": "School Supplies Store",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "schoolsupply"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "School Supplies Store"
+        ]
+      }
+    },
+    {
+      "username": "baby_shop",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "baby_shop@example.com",
+      "firstName": "Baby Shop",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "baby_shop"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Baby Shop"
+        ]
+      }
+    },
+    {
+      "username": "infant_care",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "infant_care@example.com",
+      "firstName": "Infant Care Specialties",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "infant_care"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Infant Care Specialties"
+        ]
+      }
+    },
+    {
+      "username": "outdoor_gear",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "outdoor_gear@example.com",
+      "firstName": "Outdoor Gear Co.",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "outdoor_gear"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Outdoor Gear Co."
+        ]
+      }
+    },
+    {
+      "username": "run_shop",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "run_shop@example.com",
+      "firstName": "Run & Fit Shop",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "run_shop"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Run & Fit Shop"
+        ]
+      }
+    },
+    {
+      "username": "beauty_brand",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "beauty_brand@example.com",
+      "firstName": "Beauty Brand Store",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "beauty_brand"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Beauty Brand Store"
+        ]
+      }
+    },
+    {
+      "username": "skincare_lab",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "skincare_lab@example.com",
+      "firstName": "Skincare Lab",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "skincare_lab"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Skincare Lab"
+        ]
+      }
+    },
+    {
+      "username": "cosmetics",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "cosmetics@example.com",
+      "firstName": "Global Cosmetics",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "cosmetics"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Global Cosmetics"
+        ]
+      }
+    },
+    {
+      "username": "auto_parts",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "auto_parts@example.com",
+      "firstName": "Auto Parts Shop",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "auto_parts"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Auto Parts Shop"
+        ]
+      }
+    },
+    {
+      "username": "car_accessories",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "car_accessories@example.com",
+      "firstName": "Car Accessories Depot",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "car_accessories"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Car Accessories Depot"
+        ]
+      }
+    },
+    {
+      "username": "gift_shop",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "gift_shop@example.com",
+      "firstName": "Gift Shop",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "gift_shop"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Gift Shop"
+        ]
+      }
+    },
+    {
+      "username": "souvenir",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "souvenir@example.com",
+      "firstName": "Souvenir World",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "souvenir"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Souvenir World"
+        ]
+      }
+    },
+    {
+      "username": "supplement_co",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "supplement_co@example.com",
+      "firstName": "Supplement Co.",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "supplement_co"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Supplement Co."
+        ]
+      }
+    },
+    {
+      "username": "wellness_shop",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "wellness_shop@example.com",
+      "firstName": "Wellness & Health Shop",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "wellness_shop"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Wellness & Health Shop"
+        ]
+      }
+    },
+    {
+      "username": "misc_shop",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "misc_shop@example.com",
+      "firstName": "Misc Shop",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "misc_shop"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "Misc Shop"
+        ]
+      }
+    },
+    {
+      "username": "general_store",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "general_store@example.com",
+      "firstName": "General Store",
+      "lastName": "Seller",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "general_store"
+        }
+      ],
+      "groups": [
+        "Seller"
+      ],
+      "realmRoles": [
+        "seller"
+      ],
+      "attributes": {
+        "description": [
+          "General Store"
+        ]
       }
     }
-  ]
+  ],
+  "components": {
+    "org.keycloak.userprofile.UserProfileProvider": [
+      {
+        "providerId": "declarative-user-profile",
+        "config": {
+          "kc.user.profile.config": [
+            "{\"unmanagedAttributePolicy\": \"ENABLED\", \"attributes\": [{\"name\": \"username\", \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\", \"user\"]}}, {\"name\": \"email\", \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\", \"user\"]}}, {\"name\": \"firstName\", \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\", \"user\"]}}, {\"name\": \"lastName\", \"permissions\": {\"view\": [\"admin\", \"user\"], \"edit\": [\"admin\", \"user\"]}}]}"
+          ]
+        }
+      }
+    ]
+  }
 }

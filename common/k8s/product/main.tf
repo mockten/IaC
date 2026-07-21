@@ -1,6 +1,6 @@
 resource "kubernetes_deployment" "product" {
   metadata {
-    name = "product-deploy"
+    name      = "product-deploy"
     namespace = "default"
   }
   spec {

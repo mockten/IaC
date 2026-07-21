@@ -1,0 +1,114 @@
+name: Deploy(GCP)
+
+# Manual, like RELEASE. Brings the mockten platform up on GKE.
+# Tearing it down lives in destroy-gcp.yml — deliberately a separate workflow,
+# so "destroy" is never one wrong dropdown pick away from "apply".
+#
+# Required repository secrets:
+#   GCP_SA_KEY        JSON key of a deploy service account (see gcp/README.md).
+#                     WIF (keyless) is the recommended hardening; SA key is v1.
+#   GCP_PROJECT       GCP project id (also names the state bucket <project>-tfstate)
+#   GH_USERNAME / GH_TOKEN / GH_EMAIL            ghcr image pull
+#   ROOT_DOMAIN       apex domain served by the storefront
+#   LETSENCRYPT_EMAIL ACME account email
+#   ALLOWLIST_CIDR    the one IP allowed at the ingress + control plane
+#   DOMAIN_API_KEY    DigitalPlat bearer token for the nameserver push
+#   STRIPE_SECRET_KEY / STRIPE_PUBLIC_KEY        payments
+#   GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET      Keycloak SSO (dev app)
+#   FACEBOOK_CLIENT_ID / FACEBOOK_CLIENT_SECRET  Keycloak SSO (dev app)
+#   CLOUD_GOOGLE_* / CLOUD_FACEBOOK_*            optional; override the dev app
+#                     per provider. Facebook currently has no cloud app: a Meta
+#                     app only gets `email` after App Review, so the reviewed dev
+#                     app is reused. Set CLOUD_FACEBOOK_* once that changes.
+
+on:
+  workflow_dispatch:
+    inputs:
+      acme_staging:
+        description: "Issue TLS from Let's Encrypt STAGING (browsers warn, but the rate limit is effectively unmetered). Use while iterating."
+        type: boolean
+        default: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
+      # Terraform reads TF_VAR_<name> natively — no tfvars file touches the runner.
+      TF_VAR_project: ${{ secrets.GCP_PROJECT }}
+      TF_VAR_github_username: ${{ secrets.GH_USERNAME }}
+      TF_VAR_github_token: ${{ secrets.GH_TOKEN }}
+      TF_VAR_github_email: ${{ secrets.GH_EMAIL }}
+      TF_VAR_google_client_id: ${{ secrets.CLOUD_GOOGLE_CLIENT_ID || secrets.GOOGLE_CLIENT_ID }}
+      TF_VAR_google_client_secret: ${{ secrets.CLOUD_GOOGLE_CLIENT_SECRET || secrets.GOOGLE_CLIENT_SECRET }}
+      TF_VAR_facebook_client_id: ${{ secrets.CLOUD_FACEBOOK_CLIENT_ID || secrets.FACEBOOK_CLIENT_ID }}
+      TF_VAR_facebook_client_secret: ${{ secrets.CLOUD_FACEBOOK_CLIENT_SECRET || secrets.FACEBOOK_CLIENT_SECRET }}
+      TF_VAR_stripe_secret_key: ${{ secrets.STRIPE_SECRET_KEY }}
+      TF_VAR_stripe_public_key: ${{ secrets.STRIPE_PUBLIC_KEY }}
+      TF_VAR_domain_api_key: ${{ secrets.DOMAIN_API_KEY }}
+      TF_VAR_allowlist_cidr: ${{ secrets.ALLOWLIST_CIDR }}
+      TF_VAR_root_domain: ${{ secrets.ROOT_DOMAIN }}
+      TF_VAR_letsencrypt_email: ${{ secrets.LETSENCRYPT_EMAIL }}
+      TF_VAR_acme_staging: ${{ inputs.acme_staging }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+
+      # The control plane only admits allowlisted CIDRs. The runner's egress IP is
+      # dynamic, so add it for this run only (it never opens the data-plane ingress,
+      # which stays restricted to ALLOWLIST_CIDR).
+      - name: Authorize this runner on the control plane
+        run: echo "TF_VAR_master_authorized_extra=[\"$(curl -s https://api.ipify.org)/32\"]" >> "$GITHUB_ENV"
+
+      - name: Terraform init
+        working-directory: gcp
+        run: terraform init -backend-config="bucket=${GCP_PROJECT}-tfstate"
+
+      - name: Terraform apply
+        working-directory: gcp
+        run: terraform apply -auto-approve
+
+      # Nameserver delegation is pushed to the registrar by Terraform, but the TLD
+      # takes time to serve it, and cert-manager cannot answer the DNS-01 challenge
+      # until it does. Report rather than fail: the certificates retry on their own.
+      - name: Report certificate status
+        if: always()
+        working-directory: gcp
+        run: |
+          gcloud container clusters get-credentials "$(terraform output -raw cluster_name)" \
+            --zone us-east1-b --project "${GCP_PROJECT}"
+          for i in $(seq 1 40); do
+            READY=$(kubectl -n default get certificate --no-headers 2>/dev/null | grep -c True || true)
+            [ "${READY:-0}" = "4" ] && break
+            sleep 15
+          done
+          kubectl -n default get certificate || true
+          kubectl -n default get pods || true
+
+      - name: Summary
+        if: always()
+        working-directory: gcp
+        run: |
+          {
+            echo "### Deployed"
+            echo '```'
+            terraform output -json hosts | python3 -m json.tool
+            echo '```'
+            echo "TLS: ${{ inputs.acme_staging && 'Let''s Encrypt STAGING (browsers will warn)' || 'Let''s Encrypt production' }}"
+            echo ""
+            echo "E2E credentials are in Terraform state, not here:"
+            echo '```'
+            echo 'terraform output -raw e2e_admin_user'
+            echo 'terraform output -raw e2e_admin_password'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

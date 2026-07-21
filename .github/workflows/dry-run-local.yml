@@ -8,6 +8,19 @@ on:
 jobs:
   dry-run:
     runs-on: ubuntu-latest
+    # Terraform reads TF_VAR_<name> natively, so no tfvars file is written to
+    # the runner's disk and no secret goes through shell quoting. These are the
+    # same variables .env supplies locally — only the source differs.
+    env:
+      TF_VAR_github_username: ${{ secrets.GH_USERNAME }}
+      TF_VAR_github_token: ${{ secrets.GH_TOKEN }}
+      TF_VAR_github_email: ${{ secrets.GH_EMAIL }}
+      TF_VAR_google_client_id: ${{ secrets.GOOGLE_CLIENT_ID }}
+      TF_VAR_google_client_secret: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      TF_VAR_facebook_client_id: ${{ secrets.FACEBOOK_CLIENT_ID }}
+      TF_VAR_facebook_client_secret: ${{ secrets.FACEBOOK_CLIENT_SECRET }}
+      TF_VAR_stripe_secret_key: ${{ secrets.STRIPE_SECRET_KEY }}
+      TF_VAR_stripe_public_key: ${{ secrets.STRIPE_PUBLIC_KEY }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
@@ -38,17 +51,10 @@ jobs:
       run: |
         minikube start --driver=docker
 
-    - name: Create temporary tfvars file
-      run: |
-        echo "github_username = \"${{ secrets.GH_USERNAME }}\"" > temp.tfvars
-        echo "github_token    = \"${{ secrets.GT_TOKEN }}\"" >> temp.tfvars
-        echo "github_email    = \"${{ secrets.GT_EMAIL }}\"" >> temp.tfvars
-
     - name: Initialize Terraform for local
       working-directory: local
-      run: 
-        terraform init
+      run: terraform init
 
     - name: Terraform Plan for local
       working-directory: local
-      run: terraform plan -var-file="../temp.tfvars"
+      run: terraform plan

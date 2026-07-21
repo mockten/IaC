@@ -1,6 +1,6 @@
 resource "kubernetes_deployment" "sync" {
   metadata {
-    name = "sync-deploy"
+    name      = "sync-deploy"
     namespace = "default"
   }
   spec {

@@ -1,6 +1,6 @@
 resource "kubernetes_deployment" "searchitem" {
   metadata {
-    name = "searchitem-deploy"
+    name      = "searchitem-deploy"
     namespace = "default"
   }
   spec {

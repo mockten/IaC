@@ -2,3 +2,9 @@ variable "secret_name" {
   description = "The name of the Kubernetes secret for image pull"
   type        = string
 }
+
+variable "storage_class" {
+  description = "StorageClass for the MinIO PVC. docker-desktop uses hostpath; GKE uses standard-rwo."
+  type        = string
+  default     = "hostpath"
+}

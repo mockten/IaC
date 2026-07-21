@@ -1,0 +1,69 @@
+name: DryRun(GCP)
+
+# Automatic sanity check on every push: does the GCP config still init, validate,
+# and plan? Automation stops here — apply lives in deploy-to-gcp.yml and destroy in
+# destroy-gcp.yml, both workflow_dispatch (manual) on purpose.
+#
+# Uses the same repository secrets as Deploy(GCP); Terraform needs the full variable
+# set to build a plan even when nothing is applied.
+
+on:
+  push:
+    branches:
+      - '**'
+    paths:
+      - 'gcp/**'
+      - 'common/**'
+      - '.github/workflows/dry-run-gcp.yml'
+
+jobs:
+  dry-run:
+    runs-on: ubuntu-latest
+    env:
+      GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
+      # Terraform reads TF_VAR_<name> natively — no tfvars file touches the runner.
+      TF_VAR_project: ${{ secrets.GCP_PROJECT }}
+      TF_VAR_github_username: ${{ secrets.GH_USERNAME }}
+      TF_VAR_github_token: ${{ secrets.GH_TOKEN }}
+      TF_VAR_github_email: ${{ secrets.GH_EMAIL }}
+      TF_VAR_google_client_id: ${{ secrets.CLOUD_GOOGLE_CLIENT_ID || secrets.GOOGLE_CLIENT_ID }}
+      TF_VAR_google_client_secret: ${{ secrets.CLOUD_GOOGLE_CLIENT_SECRET || secrets.GOOGLE_CLIENT_SECRET }}
+      TF_VAR_facebook_client_id: ${{ secrets.CLOUD_FACEBOOK_CLIENT_ID || secrets.FACEBOOK_CLIENT_ID }}
+      TF_VAR_facebook_client_secret: ${{ secrets.CLOUD_FACEBOOK_CLIENT_SECRET || secrets.FACEBOOK_CLIENT_SECRET }}
+      TF_VAR_stripe_secret_key: ${{ secrets.STRIPE_SECRET_KEY }}
+      TF_VAR_stripe_public_key: ${{ secrets.STRIPE_PUBLIC_KEY }}
+      TF_VAR_domain_api_key: ${{ secrets.DOMAIN_API_KEY }}
+      TF_VAR_allowlist_cidr: ${{ secrets.ALLOWLIST_CIDR }}
+      TF_VAR_root_domain: ${{ secrets.ROOT_DOMAIN }}
+      TF_VAR_letsencrypt_email: ${{ secrets.LETSENCRYPT_EMAIL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Needed so `terraform init` can read the GCS backend state and the google
+      # provider can authenticate — plan only reads, it never mutates anything.
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+
+      - name: Terraform init
+        working-directory: gcp
+        run: terraform init -backend-config="bucket=${GCP_PROJECT}-tfstate"
+
+      - name: Terraform validate
+        working-directory: gcp
+        run: terraform validate
+
+      # -refresh=false on purpose: the GKE control plane only admits ALLOWLIST_CIDR,
+      # so a CI runner cannot reach the Kubernetes/Helm providers to refresh live
+      # state. This dry-run catches configuration and plan errors without needing
+      # cluster connectivity; the real refresh happens during the manual apply.
+      - name: Terraform plan
+        working-directory: gcp
+        run: terraform plan -input=false -refresh=false

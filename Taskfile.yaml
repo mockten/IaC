@@ -1,21 +1,302 @@
 version: "3"
+
+# Values come from the environment, never from a file Terraform reads directly:
+# locally from .env (gitignored, see .env.example), in CI from GitHub Secrets.
+# Only the source differs — the variable names are identical everywhere, so the
+# same `terraform apply` works in both. Terraform picks these up natively as
+# TF_VAR_<name>; there is deliberately no *.tfvars file, so no secret is ever
+# written to disk by CI.
+#
+# Note: a `-var-file` would silently OVERRIDE these, so none of the terraform
+# tasks below may pass one.
+dotenv: [".env"]
+
+# EVERY kubectl call below pins this context. Without it kubectl follows whatever
+# context happens to be current, and these tasks are local-only — `task destroy`
+# once ran its PVC cleanup against a GKE cluster because the current context had
+# been switched, marking that cluster's MySQL and MinIO volumes for deletion.
+# The terraform provider in local/main.tf is pinned for the same reason.
+# Override only if your local cluster has a different context name.
+vars:
+  KCTX: '{{.KCTX | default "docker-desktop"}}'
+
+env:
+  TF_VAR_github_username: '{{.GITHUB_USERNAME}}'
+  TF_VAR_github_token: '{{.GITHUB_TOKEN}}'
+  TF_VAR_github_email: '{{.GITHUB_EMAIL}}'
+  TF_VAR_google_client_id: '{{.GOOGLE_CLIENT_ID}}'
+  TF_VAR_google_client_secret: '{{.GOOGLE_CLIENT_SECRET}}'
+  TF_VAR_facebook_client_id: '{{.FACEBOOK_CLIENT_ID}}'
+  TF_VAR_facebook_client_secret: '{{.FACEBOOK_CLIENT_SECRET}}'
+  TF_VAR_stripe_secret_key: '{{.STRIPE_SECRET_KEY}}'
+  TF_VAR_stripe_public_key: '{{.STRIPE_PUBLIC_KEY}}'
+
 tasks:
-  build: 
+  setup:
+    desc: Download product photos from GitHub Releases
     cmds:
-      - (cd local && terraform apply -var-file="local.tfvars" --auto-approve)
-  destroy: 
+      - |
+        PHOTOS_COMPLETE=".photos_downloaded"
+        if [ -f "$PHOTOS_COMPLETE" ]; then
+          echo "Photos already downloaded, skipping."
+        else
+          echo "=== Downloading product photos from GitHub Releases ==="
+          RELEASE_BASE="https://github.com/mockten/mockten/releases/download/photos-v1"
+          PHOTO_DIR="/tmp/mockten-photos"
+          mkdir -p "$PHOTO_DIR"
+          for part in photos_part1.zip photos_part2.zip; do
+            echo "Downloading $part ..."
+            curl -L --fail --retry 3 "$RELEASE_BASE/$part" -o "/tmp/$part"
+            echo "Extracting $part ..."
+            unzip -o "/tmp/$part" -d "$PHOTO_DIR/"
+            rm "/tmp/$part"
+          done
+          touch "$PHOTOS_COMPLETE"
+          echo "Photos download complete to $PHOTO_DIR"
+        fi
+      # Install Python seeder dependencies
+      - |
+        (pip3 install --break-system-packages -r /Users/takayukiyamamuro/Documents/GitHub/mockten/mysql/seeder/requirements.txt 2>/dev/null || \
+         pip install --break-system-packages -r /Users/takayukiyamamuro/Documents/GitHub/mockten/mysql/seeder/requirements.txt 2>/dev/null || \
+         pip3 install -r /Users/takayukiyamamuro/Documents/GitHub/mockten/mysql/seeder/requirements.txt 2>/dev/null || \
+         pip install -r /Users/takayukiyamamuro/Documents/GitHub/mockten/mysql/seeder/requirements.txt 2>/dev/null || true)
+
+  build:
+    desc: Build the local k8s environment with Terraform and seed data
     cmds:
-      - (cd local && terraform destroy -var-file="local.tfvars" --auto-approve)
-  plan: 
+      # metrics-server is part of the Terraform config (local/k8s), not a
+      # separate kubectl step — everything in the cluster is applied and
+      # destroyed by Terraform.
+      - (cd local && terraform apply --auto-approve)
+      - task: wait-for-mysql
+      - task: insert-test-data
+      # mockten's own `task build` seeds behavior data and kicks off one pipeline
+      # run after compose comes up. Both are needed for parity: the recommendation
+      # service has nothing to fall back on without the seed, and the dashboard's
+      # Run History is empty without a DAG run.
+      - task: seed-behavior
+      - task: trigger-pipeline
+
+  destroy:
+    desc: Destroy the local k8s environment
     cmds:
-      - (cd local && terraform plan -var-file="local.tfvars")
+      - (cd local && terraform destroy --auto-approve)
+      # A StatefulSet's volumeClaimTemplate PVC is not owned by the StatefulSet,
+      # so neither Kubernetes nor Terraform removes it — `terraform destroy`
+      # leaves the MySQL volume behind and the next build silently comes up on
+      # the OLD database. That matters beyond stale rows: Keycloak imports the
+      # realm only when it does not already exist, so a surviving DB pins the
+      # realm (and its OAuth client IDs) to whatever the first build wrote.
+      # This is cleanup of a Terraform-created resource's leftovers, not a
+      # deploy: nothing here creates cluster state.
+      - |
+        PVCS=$(kubectl --context {{.KCTX}} get pvc -n default -o name 2>/dev/null || true)
+        if [ -n "$PVCS" ]; then
+          echo "=== Removing leftover PVCs ==="
+          echo "$PVCS" | xargs -r kubectl --context {{.KCTX}} delete -n default --timeout=60s
+        fi
+      - (docker system prune -f 2>/dev/null || true)
+
+  plan:
+    desc: Preview Terraform changes
+    cmds:
+      - (cd local && terraform plan)
+
   init:
+    desc: Initialize Terraform
     cmds:
       - (cd local && terraform init)
-  codespace_k8s_setup:
+
+  wait-for-mysql:
+    desc: Wait for MySQL to be ready
     cmds:
-      - minikube start
-      - minikube tunnel
-  codespsace_portforward:
+      - |
+        echo "=== Waiting for MySQL ==="
+        for i in $(seq 1 60); do
+          kubectl --context {{.KCTX}} exec mysql-sts-0 -- mysqladmin ping -umocktenusr -pmocktenpassword --silent 2>/dev/null && break || sleep 2
+        done
+        echo "MySQL is ready."
+
+  insert-test-data:
+    desc: Insert additional test data into MySQL
     cmds:
-      - kubectl port-forward --namespace ingress-nginx service/nginx-ingress 8080:80
+      - |
+        echo "=== Waiting for product data ==="
+        for i in $(seq 1 60); do
+          kubectl --context {{.KCTX}} exec mysql-sts-0 -- mysql --ssl-mode=DISABLED -umocktenusr -pmocktenpassword mocktendb -e "SELECT 1 FROM Product LIMIT 1" >/dev/null 2>&1 && break || sleep 2
+        done
+        echo "Inserting test data..."
+        kubectl --context {{.KCTX}} exec -i mysql-sts-0 -- mysql --ssl-mode=DISABLED -umocktenusr -pmocktenpassword mocktendb < /Users/takayukiyamamuro/Documents/GitHub/mockten/mysql/test_insert.sql 2>/dev/null || true
+        echo "Test data inserted."
+
+  seed-behavior:
+    desc: Seed behavior data for recommendation training (port-forwards MySQL itself)
+    cmds:
+      - |
+        echo "=== Seeding behavior data ==="
+        # Wait for MySQL to have a ready endpoint BEFORE port-forwarding:
+        # `kubectl port-forward` against a service with no ready backend exits
+        # immediately, and then nothing is listening locally.
+        kubectl --context {{.KCTX}} wait --for=condition=ready pod/mysql-sts-0 --timeout=180s >/dev/null 2>&1 || true
+
+        # The seeder runs on the host, so it needs a route to MySQL. Use a high
+        # local port to avoid colliding with a MySQL the developer runs locally.
+        kubectl --context {{.KCTX}} port-forward svc/mysql-service 13306:3306 >/dev/null 2>&1 &
+        PF_PID=$!
+        trap 'kill $PF_PID 2>/dev/null || true' EXIT
+
+        # Wait for the forwarded LOCAL port to accept connections. Checking that
+        # the MySQL server is up (via kubectl exec) says nothing about whether
+        # the tunnel bound, which is exactly how this silently seeded nothing.
+        READY=0
+        for i in $(seq 1 30); do
+          if python3 -c "import socket,sys; s=socket.socket(); s.settimeout(1); sys.exit(0 if s.connect_ex(('127.0.0.1',13306))==0 else 1)" 2>/dev/null; then
+            READY=1
+            break
+          fi
+          sleep 1
+        done
+        if [ "$READY" != "1" ]; then
+          echo "ERROR: port-forward to MySQL never came up; behavior data not seeded."
+          exit 1
+        fi
+
+        MYSQL_HOST=127.0.0.1 MYSQL_PORT=13306 \
+        RANKING_API=http://localhost/api/ranking/update \
+        python3 /Users/takayukiyamamuro/Documents/GitHub/mockten/mysql/seeder/behavior_seeder.py
+
+  trigger-pipeline:
+    desc: Trigger one Airflow DAG run, mirroring mockten's task build
+    cmds:
+      - |
+        echo "=== Triggering data pipeline ==="
+        # Trigger via the scheduler's CLI rather than the REST API: no
+        # port-forward, and no basic-auth credentials in the Taskfile.
+        for i in $(seq 1 60); do
+          kubectl --context {{.KCTX}} exec deployment/airflow-scheduler-deploy -- airflow db check >/dev/null 2>&1 && break
+          sleep 3
+        done
+        kubectl --context {{.KCTX}} exec deployment/airflow-scheduler-deploy -- \
+          airflow dags trigger mockten_data_pipeline >/dev/null 2>&1 && \
+          echo "Pipeline triggered." || \
+          echo "WARN: pipeline trigger failed; dashboard Run History will be empty."
+
+  hc:
+    desc: Verify all deployments are running
+    cmds:
+      - |
+        FAILED=0
+        for deploy in ecfront-deploy uam-deploy apigw-deploy minio-deploy meilisearch-deploy searchitem-deploy product-deploy cart-deploy sync-deploy redis-deploy ecpay-deploy ranking-deploy sale-deploy shipment-deploy geocoding-deploy recommendation-deploy backdoor-deploy dashboard-deploy airflow-webserver-deploy airflow-scheduler-deploy; do
+          READY=$(kubectl --context {{.KCTX}} get deployment "$deploy" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+          if [ "$READY" != "1" ]; then
+            echo "FAIL: $deploy is not ready (readyReplicas=$READY)"
+            FAILED=1
+          fi
+        done
+        READY=$(kubectl --context {{.KCTX}} get statefulset mysql-sts -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+        if [ "$READY" = "1" ]; then
+          echo "PASS: mysql-sts"
+        else
+          echo "FAIL: mysql-sts (readyReplicas=$READY)"
+          FAILED=1
+        fi
+        if [ $FAILED -ne 0 ]; then
+          echo "Health check FAILED."
+          kubectl --context {{.KCTX}} get pods
+          exit 1
+        fi
+        echo "All services are running."
+
+  hc-deep:
+    desc: Deep health check - verify HTTP endpoints respond
+    cmds:
+      - task: hc
+      - |
+        FAILED=0
+        echo "=== [Deep HC] Checking HTTP endpoints ==="
+        STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/ 2>/dev/null || echo "000")
+        if [ "$STATUS" = "200" ] || [ "$STATUS" = "304" ]; then
+          echo "PASS  ecfront: $STATUS"
+        else
+          echo "FAIL  ecfront: $STATUS"
+          FAILED=1
+        fi
+        STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8082/ 2>/dev/null || echo "000")
+        if [ "$STATUS" != "000" ]; then
+          echo "PASS  apigw: $STATUS"
+        else
+          echo "FAIL  apigw: unreachable"
+          FAILED=1
+        fi
+        kubectl --context {{.KCTX}} exec mysql-sts-0 -- mysql --ssl-mode=DISABLED -umocktenusr -pmocktenpassword mocktendb -e "SELECT 1" >/dev/null 2>&1 && \
+          echo "PASS  mysql: query OK" || { echo "FAIL  mysql: query failed"; FAILED=1; }
+        STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost/api/test/reset-stock 2>/dev/null || echo "000")
+        if [ "$STATUS" = "200" ]; then
+          echo "PASS  reset-stock: $STATUS"
+        else
+          echo "WARN  reset-stock: $STATUS (may need Vite dev server running)"
+        fi
+        if [ $FAILED -ne 0 ]; then
+          echo "Deep health check FAILED."
+          exit 1
+        fi
+        echo "Deep health check PASSED."
+
+  e2e:
+    desc: Run Playwright E2E test suite
+    cmds:
+      - |
+        cd /Users/takayukiyamamuro/Documents/GitHub/mockten/ecfront
+        PLAYWRIGHT_BASE_URL=http://localhost npx playwright test --reporter=list
+
+  e2e-sales:
+    desc: Run Seller Portal E2E tests
+    cmds:
+      - |
+        cd /Users/takayukiyamamuro/Documents/GitHub/mockten/ecfront
+        npx playwright test tests/scenario-seller.spec.ts --reporter=list
+
+  e2e-admin:
+    desc: Run Admin Portal E2E tests
+    cmds:
+      - |
+        cd /Users/takayukiyamamuro/Documents/GitHub/mockten/ecfront
+        npx playwright test tests/scenario-admin.spec.ts --reporter=list
+
+  e2e-spec:
+    desc: "Run a single Playwright spec (usage: task e2e-spec SPEC=<filename>)"
+    cmds:
+      - |
+        cd /Users/takayukiyamamuro/Documents/GitHub/mockten/ecfront
+        npx playwright test --reporter=list "tests/{{.SPEC}}"
+
+  portforward:
+    desc: Forward nginx ingress port for Codespace access
+    cmds:
+      - kubectl --context {{.KCTX}} port-forward --namespace ingress-nginx service/nginx-ingress 8080:80
+
+  reset-stock:
+    desc: Reset stock to initial values for E2E testing
+    cmds:
+      - |
+        RESULT=$(curl -s -X POST http://localhost/api/test/reset-stock)
+        echo "$RESULT"
+
+  logs:
+    desc: "Tail logs from a specific deployment (usage: task logs DEPLOY=<name>)"
+    cmds:
+      - kubectl --context {{.KCTX}} logs deployment/{{.DEPLOY}}-deploy -f
+    vars:
+      DEPLOY: '{{.DEPLOY | default "ecfront"}}'
+
+  recommend-train:
+    desc: Run recommendation model training
+    cmds:
+      - |
+        POD=$(kubectl --context {{.KCTX}} get pod -l app=recommendation -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+        if [ -n "$POD" ]; then
+          kubectl --context {{.KCTX}} exec "$POD" -- python train.py
+        else
+          echo "Recommendation pod not found."
+        fi
+

@@ -1,3 +1,14 @@
+resource "kubernetes_secret" "mysql" {
+  metadata {
+    name      = "mysql-secret"
+    namespace = "default"
+  }
+  data = {
+    MYSQL_ROOT_PASSWORD = "rootpassword"
+    MYSQL_PASSWORD      = "mocktenpassword"
+  }
+}
+
 resource "kubernetes_stateful_set" "mysql" {
   metadata {
     name      = "mysql-sts"
@@ -34,10 +45,12 @@ resource "kubernetes_stateful_set" "mysql" {
             container_port = 3306
           }
 
-          env {
-            name  = "MYSQL_ROOT_PASSWORD"
-            value = "rootpassword"
+          env_from {
+            secret_ref {
+              name = kubernetes_secret.mysql.metadata[0].name
+            }
           }
+
           env {
             name  = "MYSQL_DATABASE"
             value = "mocktendb"
@@ -45,10 +58,6 @@ resource "kubernetes_stateful_set" "mysql" {
           env {
             name  = "MYSQL_USER"
             value = "mocktenusr"
-          }
-          env {
-            name  = "MYSQL_PASSWORD"
-            value = "mocktenpassword"
           }
 
           volume_mount {
@@ -64,7 +73,8 @@ resource "kubernetes_stateful_set" "mysql" {
         name = "mysql-storage"
       }
       spec {
-        access_modes = ["ReadWriteOnce"]
+        access_modes       = ["ReadWriteOnce"]
+        storage_class_name = var.storage_class
         resources {
           requests = {
             storage = "5Gi"

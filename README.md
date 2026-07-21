@@ -19,16 +19,13 @@ To use Goole SignUp/SignIn, please create Google auth client like below.
 | Application type          | Web application                                    |
 | Authorized Redirect URIs | http://localhost/api/uam/broker/google/endpoint     |
 
-Once you get Client ID/secret, please replace the value in common/k8s/uam/config.json
+Once you get Client ID/secret, please set the values in `local.tfvars` (see below).
 <img width="1098" height="492" alt="CleanShot 2025-07-23 at 21 47 39@2x" src="https://github.com/user-attachments/assets/b417cfc0-266c-4312-9e05-e84624c900dc" />
-
-
 
 ## Facebook Authentication Setup
 To use Facebook SignUp/SignIn, please create App in [Facebook Developer](https://developers.facebook.com/apps/)
 <img width="2016" height="754" alt="CleanShot 2025-07-22 at 16 38 38@2x" src="https://github.com/user-attachments/assets/b4b95c3b-b75d-4a2e-bf05-464df6c0c09e" />
-Once you get App ID/secret, please replace the value in common/k8s/uam/config.json
-<img width="1108" height="516" alt="CleanShot 2025-07-23 at 21 48 26@2x" src="https://github.com/user-attachments/assets/75d1ebb7-8bae-401c-a429-773bf6aa0b67" />
+Once you get App ID/secret, please set the values in `local.tfvars` (see below).
 
 
 ## Verify Installation
@@ -53,9 +50,18 @@ To build infrastructure locally, follow these steps:
 3. Create a `local.tfvars` file in the `local` directory with the following content:
 
     ```hcl
-    github_username = "GITHUB_USERNAME"
-    github_token    = "GITHUB_TOKEN"
-    github_email    = "GIT_HUB_EMAIL"
+    github_username       = "GITHUB_USERNAME"
+    github_token          = "GITHUB_TOKEN"
+    github_email          = "GIT_HUB_EMAIL"
+
+    # Optional: OAuth credentials for social login
+    # google_client_id     = "YOUR_GOOGLE_CLIENT_ID"
+    # google_client_secret = "YOUR_GOOGLE_CLIENT_SECRET"
+    # facebook_client_id   = "YOUR_FACEBOOK_CLIENT_ID"
+    # facebook_client_secret = "YOUR_FACEBOOK_CLIENT_SECRET"
+
+    # Optional: Stripe secret key for payment testing
+    # stripe_secret_key    = "sk_test_..."
     ```
 4. To init k8s in your local environment, please execute the following commands:
 
@@ -81,6 +87,19 @@ To build infrastructure locally, follow these steps:
     ```
 8. (For Non GitHub Codespace User) you can access to mockten app with "http://localhost"
 9. (For GitHub Codespace User) you can access to mockten app using forward for "http://localhost:8080"
+
+## Additional Tasks
+
+| Task | Description |
+|------|-------------|
+| `task hc` | Health check - verify all pods are running |
+| `task hc-deep` | Deep health check - verify HTTP endpoints respond |
+| `task seed-data` | Wait for MySQL readiness and verify data |
+| `task e2e` | Run Playwright E2E test suite |
+| `task e2e-sales` | Run Seller Portal E2E tests |
+| `task e2e-admin` | Run Admin Portal E2E tests |
+| `task reset-stock` | Reset stock for E2E testing |
+| `task logs DEPLOY=name` | Tail logs from a specific deployment |
 ![CleanShot 2024-12-15 at 03 57 35](https://github.com/user-attachments/assets/2fd67a5f-15e6-42b0-ad4d-5aad6a313725)
 ![CleanShot 2024-12-15 at 03 58 09](https://github.com/user-attachments/assets/b0eaf223-9943-4853-b159-8833718547ba)
 
