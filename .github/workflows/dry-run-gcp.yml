@@ -1,4 +1,4 @@
-name: GCP DryRun
+name: GCP 1.DryRun
 
 # Manual sanity check (workflow_dispatch): does the GCP config still init, validate,
 # and plan? Run it from the Actions tab. Kept manual so it never fails on every push

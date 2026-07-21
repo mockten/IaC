@@ -1,4 +1,4 @@
-name: Azure DryRun
+name: Azure 1.DryRun
 
 on:
   workflow_dispatch:
