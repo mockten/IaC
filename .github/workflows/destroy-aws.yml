@@ -1,0 +1,66 @@
+name: Destroy(AWS)
+
+# DRAFT — mirrors Destroy(GCP). Tears the whole AWS environment down. Separate from
+# Deploy(AWS) on purpose, and demands the state-bucket name be typed in, so a destroy
+# is never one mis-click from an apply.
+#
+# Required repository secrets: the same set Deploy(AWS) uses.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type the AWS state bucket name to confirm destruction"
+        required: true
+        type: string
+      keep_dns_zone:
+        description: "Keep the Route 53 / DNS zone (avoids re-delegating nameservers on the next apply)"
+        type: boolean
+        default: false
+
+jobs:
+  destroy:
+    runs-on: ubuntu-latest
+    env:
+      TF_VAR_region: ${{ secrets.AWS_REGION }}
+      TF_VAR_github_username: ${{ secrets.GH_USERNAME }}
+      TF_VAR_github_token: ${{ secrets.GH_TOKEN }}
+      TF_VAR_github_email: ${{ secrets.GH_EMAIL }}
+      TF_VAR_google_client_id: ${{ secrets.CLOUD_GOOGLE_CLIENT_ID || secrets.GOOGLE_CLIENT_ID }}
+      TF_VAR_google_client_secret: ${{ secrets.CLOUD_GOOGLE_CLIENT_SECRET || secrets.GOOGLE_CLIENT_SECRET }}
+      TF_VAR_facebook_client_id: ${{ secrets.CLOUD_FACEBOOK_CLIENT_ID || secrets.FACEBOOK_CLIENT_ID }}
+      TF_VAR_facebook_client_secret: ${{ secrets.CLOUD_FACEBOOK_CLIENT_SECRET || secrets.FACEBOOK_CLIENT_SECRET }}
+      TF_VAR_stripe_secret_key: ${{ secrets.STRIPE_SECRET_KEY }}
+      TF_VAR_stripe_public_key: ${{ secrets.STRIPE_PUBLIC_KEY }}
+      TF_VAR_domain_api_key: ${{ secrets.DOMAIN_API_KEY }}
+      TF_VAR_allowlist_cidr: ${{ secrets.ALLOWLIST_CIDR }}
+      TF_VAR_root_domain: ${{ secrets.ROOT_DOMAIN }}
+      TF_VAR_letsencrypt_email: ${{ secrets.LETSENCRYPT_EMAIL }}
+
+    steps:
+      - name: Guard — confirm input matches the state bucket
+        run: |
+          if [ "${{ inputs.confirm }}" != "${{ secrets.AWS_TFSTATE_BUCKET }}" ]; then
+            echo "confirm input does not match AWS_TFSTATE_BUCKET; aborting." >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+
+      - name: Terraform init
+        working-directory: aws
+        run: terraform init -backend-config="bucket=${{ secrets.AWS_TFSTATE_BUCKET }}"
+
+      - name: Terraform destroy
+        working-directory: aws
+        run: terraform destroy -auto-approve -input=false

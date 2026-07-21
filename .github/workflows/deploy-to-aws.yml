@@ -1,0 +1,70 @@
+name: Deploy(AWS)
+
+# DRAFT — mirrors Deploy(GCP). Brings the mockten platform up on EKS. The aws/ root
+# is written but has never been applied; expect to fix small things on first run.
+# Manual, like the GCP/Azure deploys. Teardown lives in destroy-aws.yml.
+#
+# Required repository secrets: see dry-run-aws.yml's header (same set).
+
+on:
+  workflow_dispatch:
+    inputs:
+      acme_staging:
+        description: "Issue TLS from Let's Encrypt STAGING (browsers warn, rate limit effectively unmetered). Use while iterating."
+        type: boolean
+        default: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      TF_VAR_region: ${{ secrets.AWS_REGION }}
+      TF_VAR_github_username: ${{ secrets.GH_USERNAME }}
+      TF_VAR_github_token: ${{ secrets.GH_TOKEN }}
+      TF_VAR_github_email: ${{ secrets.GH_EMAIL }}
+      TF_VAR_google_client_id: ${{ secrets.CLOUD_GOOGLE_CLIENT_ID || secrets.GOOGLE_CLIENT_ID }}
+      TF_VAR_google_client_secret: ${{ secrets.CLOUD_GOOGLE_CLIENT_SECRET || secrets.GOOGLE_CLIENT_SECRET }}
+      TF_VAR_facebook_client_id: ${{ secrets.CLOUD_FACEBOOK_CLIENT_ID || secrets.FACEBOOK_CLIENT_ID }}
+      TF_VAR_facebook_client_secret: ${{ secrets.CLOUD_FACEBOOK_CLIENT_SECRET || secrets.FACEBOOK_CLIENT_SECRET }}
+      TF_VAR_stripe_secret_key: ${{ secrets.STRIPE_SECRET_KEY }}
+      TF_VAR_stripe_public_key: ${{ secrets.STRIPE_PUBLIC_KEY }}
+      TF_VAR_domain_api_key: ${{ secrets.DOMAIN_API_KEY }}
+      TF_VAR_allowlist_cidr: ${{ secrets.ALLOWLIST_CIDR }}
+      TF_VAR_root_domain: ${{ secrets.ROOT_DOMAIN }}
+      TF_VAR_letsencrypt_email: ${{ secrets.LETSENCRYPT_EMAIL }}
+      TF_VAR_acme_staging: ${{ inputs.acme_staging }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+
+      # The EKS control plane admits only allowlisted CIDRs. The runner's egress IP
+      # is dynamic, so add it for this run only (never opens the data-plane ingress).
+      - name: Authorize this runner on the control plane
+        run: echo "TF_VAR_master_authorized_extra=[\"$(curl -s https://api.ipify.org)/32\"]" >> "$GITHUB_ENV"
+
+      - name: Terraform init
+        working-directory: aws
+        run: terraform init -backend-config="bucket=${{ secrets.AWS_TFSTATE_BUCKET }}"
+
+      - name: Terraform apply
+        working-directory: aws
+        run: terraform apply -auto-approve
+
+      - name: Report certificate status
+        if: always()
+        working-directory: aws
+        run: |
+          aws eks update-kubeconfig --name "$(terraform output -raw cluster_name)" \
+            --region "${{ secrets.AWS_REGION }}" || true
+          kubectl -n default get certificate || true
+          kubectl -n default get pods || true
