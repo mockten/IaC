@@ -1,3 +1,9 @@
+variable "kube_context" {
+  description = "kubectl context the local root applies to. Defaults to docker-desktop so `local` can never touch a cloud cluster by accident; CI overrides it (TF_VAR_kube_context=minikube) to plan against the minikube it starts."
+  type        = string
+  default     = "docker-desktop"
+}
+
 variable "github_username" {
   description = "GitHub username"
   type        = string

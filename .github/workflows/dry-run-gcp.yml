@@ -1,20 +1,15 @@
 name: DryRun(GCP)
 
-# Automatic sanity check on every push: does the GCP config still init, validate,
-# and plan? Automation stops here — apply lives in deploy-to-gcp.yml and destroy in
-# destroy-gcp.yml, both workflow_dispatch (manual) on purpose.
+# Manual sanity check (workflow_dispatch): does the GCP config still init, validate,
+# and plan? Run it from the Actions tab. Kept manual so it never fails on every push
+# for clones without the GCP secrets configured. Apply lives in deploy-to-gcp.yml and
+# destroy in destroy-gcp.yml, both workflow_dispatch (manual) on purpose.
 #
 # Uses the same repository secrets as Deploy(GCP); Terraform needs the full variable
 # set to build a plan even when nothing is applied.
 
 on:
-  push:
-    branches:
-      - '**'
-    paths:
-      - 'gcp/**'
-      - 'common/**'
-      - '.github/workflows/dry-run-gcp.yml'
+  workflow_dispatch:
 
 jobs:
   dry-run:

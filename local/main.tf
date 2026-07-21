@@ -5,7 +5,11 @@ provider "kubernetes" {
   # cluster would execute this root's state against THAT cluster. The kubeconfig
   # on this machine carries GKE, EKS and colima contexts, so that is a live
   # hazard, not a theoretical one. `local` must only ever touch docker-desktop.
-  config_context = "docker-desktop"
+  #
+  # Defaults to docker-desktop so the safety property holds for every developer.
+  # CI overrides it (TF_VAR_kube_context=minikube) to plan against the minikube
+  # cluster the DryRun(minikube) workflow starts — the only sanctioned override.
+  config_context = var.kube_context
 }
 
 module "local" {

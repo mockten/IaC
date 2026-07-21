@@ -51,7 +51,7 @@ The steps a first-time operator must run before `terraform apply`. Most are
 gcloud; do them once per GCP project.
 
 ```sh
-PROJECT=ethereal-app-502613-p1
+PROJECT=your-gcp-project-id
 REGION=us-east1
 
 # 1. Billing must be linked, or every API enable and the cluster create fail.
@@ -68,6 +68,18 @@ gcloud storage buckets create "gs://${PROJECT}-tfstate" --project "$PROJECT" --l
 
 # 4. Claim the domain at DigitalPlat (dash.domain.digitalplat.org) and mint an
 #    API token (dp_live_...). The NS delegation is then pushed automatically.
+
+# 5. Deploy service account + JSON key. Its key is the GCP_SA_KEY secret in CI
+#    and GOOGLE_APPLICATION_CREDENTIALS locally.
+gcloud iam service-accounts create mockten-deployer --project "$PROJECT"
+gcloud projects add-iam-policy-binding "$PROJECT" \
+  --member="serviceAccount:mockten-deployer@${PROJECT}.iam.gserviceaccount.com" \
+  --role="roles/owner"   # simplest; a scoped set (compute/container/dns/storage
+                         # admin + iam admin) is tighter if you prefer least-privilege.
+gcloud iam service-accounts keys create deployer-key.json \
+  --iam-account="mockten-deployer@${PROJECT}.iam.gserviceaccount.com"
+#    Paste deployer-key.json's contents into the GCP_SA_KEY secret. It matches
+#    *-key.json in .gitignore, so it is never committed — keep it that way.
 ```
 
 Nothing else is created by hand — the cert-manager Workload Identity service
@@ -86,6 +98,31 @@ GitHub secrets. Required variables:
 | `stripe_secret_key` / `stripe_public_key` | payments |
 | `domain_api_key` | DigitalPlat bearer token (`dp_live_...`) |
 | `allowlist_cidr` | the one IP allowed at the ingress + control plane (default = home IP) |
+
+### GitHub Actions secrets
+
+CI reads the same values from repository secrets (Settings → Secrets and
+variables → Actions). The secret **names differ from the `.env` names** in two
+ways, so map them deliberately:
+
+| GitHub secret | Source | Notes |
+|---|---|---|
+| `GCP_SA_KEY` | JSON key of the deploy service account | paste the **whole** file (created in Prerequisites step 5) |
+| `GCP_PROJECT` | your GCP project id | also names the `${project}-tfstate` bucket |
+| `GH_USERNAME` / `GH_TOKEN` / `GH_EMAIL` | `.env` `GITHUB_USERNAME` / `GITHUB_TOKEN` / `GITHUB_EMAIL` | **renamed** `GITHUB_*` → `GH_*` |
+| `ROOT_DOMAIN` / `LETSENCRYPT_EMAIL` / `ALLOWLIST_CIDR` / `DOMAIN_API_KEY` | same as `.env` | |
+| `STRIPE_SECRET_KEY` / `STRIPE_PUBLIC_KEY` | same as `.env` | |
+| `CLOUD_GOOGLE_CLIENT_ID` / `CLOUD_GOOGLE_CLIENT_SECRET` | your **cloud** Google OAuth app | the app whose redirect URI is `https://${ROOT_DOMAIN}/...` |
+| `CLOUD_FACEBOOK_CLIENT_ID` / `CLOUD_FACEBOOK_CLIENT_SECRET` | optional | omit to reuse the dev Facebook app |
+
+**OAuth in CI needs only the cloud app.** The workflows resolve
+`CLOUD_GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID`, and the only job that reads the
+bare `GOOGLE_CLIENT_ID` is `DryRun(minikube)`, which just runs `terraform plan`
+and never exercises the value. So set the **cloud** app under `CLOUD_GOOGLE_*`;
+the dev/localhost OAuth app belongs in each developer's local `.env`, not here.
+Do **not** put the cloud value in `GOOGLE_CLIENT_ID` — it works by fallback but
+conflicts with what that name means locally (the dev app with a localhost
+redirect URI).
 
 ## Apply
 

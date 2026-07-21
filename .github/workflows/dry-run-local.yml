@@ -12,6 +12,9 @@ jobs:
     # the runner's disk and no secret goes through shell quoting. These are the
     # same variables .env supplies locally — only the source differs.
     env:
+      # local/main.tf pins the kube context to docker-desktop by default; the
+      # runner has no such context — point the plan at the minikube it starts.
+      TF_VAR_kube_context: minikube
       TF_VAR_github_username: ${{ secrets.GH_USERNAME }}
       TF_VAR_github_token: ${{ secrets.GH_TOKEN }}
       TF_VAR_github_email: ${{ secrets.GH_EMAIL }}

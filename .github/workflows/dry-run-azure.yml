@@ -1,10 +1,7 @@
 name: DryRun(Azure)
 
 on:
-  workflow_run:
-    workflows: ["DryRun(minikube)"]
-    types:
-      - completed
+  workflow_dispatch:
 jobs:
   dry-run:
     runs-on: ubuntu-latest
