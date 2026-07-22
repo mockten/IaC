@@ -59,29 +59,45 @@ jobs:
         with:
           terraform_version: 1.9.5
 
-      # Terraform talks to the cluster's API server, which only admits allowlisted
-      # CIDRs, and the runner's egress IP is dynamic. On *apply* setting the TF var
-      # is enough — Terraform updates the authorized networks as part of the run.
-      # On *destroy* it is NOT: Terraform never applies that update, it only reads
-      # and deletes, so the k8s provider can't reach the API and every resource
-      # fails with "dial tcp <api-ip>:443: i/o timeout". So authorize this runner
-      # LIVE with gcloud before Terraform runs, and pass the same value as the var.
-      - name: Authorize this runner on the control plane
+      - name: Terraform init
+        working-directory: gcp
+        run: terraform init -backend-config="bucket=${GCP_PROJECT}-tfstate"
+
+      # Make destroy work from ANY state, including a half-destroyed one.
+      #
+      # Terraform's kubernetes/helm providers talk to the cluster's API server,
+      # which only admits allowlisted CIDRs, and the runner's egress IP is dynamic.
+      # Two cases have to be handled or `terraform destroy` hangs on a "dial tcp
+      # <api-ip>:443: i/o timeout":
+      #
+      #   1. Cluster still up  → authorize this runner LIVE with gcloud (setting the
+      #      TF var alone is not enough on destroy — Terraform never applies that
+      #      update, it only reads and deletes).
+      #   2. Cluster already gone but its k8s objects still sit in state (a previous
+      #      destroy that stopped partway) → those objects died with the cluster, so
+      #      drop them from state; otherwise Terraform tries to refresh them against
+      #      an API endpoint that no longer exists and times out.
+      - name: Authorize this runner, or drop orphaned Kubernetes state
+        working-directory: gcp
         run: |
           RUNNER_IP="$(curl -s https://api.ipify.org)/32"
           echo "TF_VAR_master_authorized_extra=[\"${RUNNER_IP}\"]" >> "$GITHUB_ENV"
           CLUSTER="$(gcloud container clusters list --project "${GCP_PROJECT}" --format='value(name)' | head -1)"
           if [ -n "${CLUSTER}" ]; then
+            echo "Cluster ${CLUSTER} is up — authorizing this runner on the control plane."
             gcloud container clusters update "${CLUSTER}" \
               --zone us-east1-b --project "${GCP_PROJECT}" \
+              --enable-master-authorized-networks \
               --master-authorized-networks "${TF_VAR_allowlist_cidr},${RUNNER_IP}"
           else
-            echo "No cluster found — nothing to authorize (already destroyed?)."
+            echo "No cluster found — removing orphaned Kubernetes/Helm resources from state."
+            terraform state list 2>/dev/null \
+              | grep -E 'helm_release\.|kubernetes_|kubectl_manifest\.' \
+              | while read -r addr; do
+                  echo "  state rm ${addr}"
+                  terraform state rm "${addr}" || true
+                done
           fi
-
-      - name: Terraform init
-        working-directory: gcp
-        run: terraform init -backend-config="bucket=${GCP_PROJECT}-tfstate"
 
       # A destroy that fails at plan time has historically been the failure mode
       # here (an unknown value reaching a `count` breaks destroy as well as

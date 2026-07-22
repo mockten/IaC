@@ -1,12 +1,18 @@
 name: Azure 3.Destroy
 
+# Tears the whole Azure environment down. Manual only — the old cron schedule that
+# auto-destroyed the environment four times a day has been removed. Like GCP 3.Destroy,
+# this is a separate workflow from the deploy and demands a confirmation value be
+# typed in, so a destroy is never one mis-click from an apply.
+
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 16 * * *'
-    - cron: '0 22 * * *'
-    - cron: '0 4 * * *'
-    - cron: '0 8 * * *'
+    inputs:
+      confirm:
+        description: "Type the Azure subscription id to confirm destruction"
+        required: true
+        type: string
+
 jobs:
   destroy:
     runs-on: ubuntu-latest
@@ -16,22 +22,33 @@ jobs:
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       # Terraform reads TF_VAR_<name> natively, so no tfvars file is written to
-      # the runner's disk and no secret goes through shell quoting.
-      # `azure` only declares repo_pat; the github_* vars live in `local`.
+      # the runner's disk. `azure` only declares repo_pat; the github_* vars live in `local`.
       TF_VAR_repo_pat: ${{ secrets.MOCKTEN_REPO_PAT }}
+
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
+      - name: Check the typed confirmation
+        run: |
+          if [ "${{ inputs.confirm }}" != "${ARM_SUBSCRIPTION_ID}" ]; then
+            echo "::error::Confirmation does not match the subscription id. Nothing was destroyed."
+            exit 1
+          fi
 
-    - name: Set up Terraform
-      uses: hashicorp/setup-terraform@v2
-      with:
-        terraform_version: 1.9.5
+      - uses: actions/checkout@v4
 
-    - name: Initialize Terraform for Azure
-      working-directory: azure
-      run: terraform init
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
 
-    - name: Terraform Destroy for Azure
-      working-directory: azure
-      run: terraform destroy -auto-approve
+      - name: Terraform init
+        working-directory: azure
+        run: terraform init
+
+      # A destroy that fails at plan time (an unknown value reaching a `count`) is
+      # the historical failure mode; surface it before anything is deleted.
+      - name: Terraform plan -destroy
+        working-directory: azure
+        run: terraform plan -destroy -no-color
+
+      - name: Terraform destroy
+        working-directory: azure
+        run: terraform destroy -auto-approve
