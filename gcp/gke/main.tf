@@ -37,7 +37,7 @@ resource "google_container_cluster" "mockten" {
 
   master_authorized_networks_config {
     dynamic "cidr_blocks" {
-      for_each = toset(concat([var.allowlist_cidr], var.master_authorized_extra))
+      for_each = toset(concat([for c in split(",", var.allowlist_cidr) : trimspace(c)], var.master_authorized_extra))
       content {
         cidr_block = cidr_blocks.value
       }

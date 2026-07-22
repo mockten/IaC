@@ -28,7 +28,7 @@ variable "cluster_name" {
 
 # ── Access control ───────────────────────────────────────────────────────────
 variable "allowlist_cidr" {
-  description = "The one CIDR allowed to reach the HTTPS ingress AND the GKE control plane (your home/office IP). TF_VAR_allowlist_cidr ← ALLOWLIST_CIDR."
+  description = "CIDR(s) allowed to reach the HTTPS ingress AND the GKE control plane. Comma-separated for multiple people, e.g. \"1.2.3.4/32,5.6.7.8/32\" (surrounding spaces are trimmed). TF_VAR_allowlist_cidr ← ALLOWLIST_CIDR."
   type        = string
 }
 
