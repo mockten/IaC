@@ -1,106 +1,216 @@
+# mockten — IaC
+
+<!-- DryRun -->
 [![DryRun(minikube)](https://github.com/mockten/IaC/actions/workflows/dry-run-local.yml/badge.svg)](https://github.com/mockten/IaC/actions/workflows/dry-run-local.yml)
+[![DryRun(GCP)](https://github.com/mockten/IaC/actions/workflows/dry-run-gcp.yml/badge.svg)](https://github.com/mockten/IaC/actions/workflows/dry-run-gcp.yml)
+[![AWS 1.DryRun](https://github.com/mockten/IaC/actions/workflows/dry-run-aws.yml/badge.svg)](https://github.com/mockten/IaC/actions/workflows/dry-run-aws.yml)
 [![DryRun(Azure)](https://github.com/mockten/IaC/actions/workflows/dry-run-azure.yml/badge.svg)](https://github.com/mockten/IaC/actions/workflows/dry-run-azure.yml)
-# Building Infrastructure
 
-## For AWS/GCP/Azure
-To build infrastructure on AWS, GCP, or Azure, use GitHub Actions.
+<!-- Deploy -->
+[![Deploy(GCP)](https://github.com/mockten/IaC/actions/workflows/deploy-to-gcp.yml/badge.svg)](https://github.com/mockten/IaC/actions/workflows/deploy-to-gcp.yml)
+[![AWS 2.Deploy](https://github.com/mockten/IaC/actions/workflows/deploy-to-aws.yml/badge.svg)](https://github.com/mockten/IaC/actions/workflows/deploy-to-aws.yml)
+[![Deploy(Azure)](https://github.com/mockten/IaC/actions/workflows/deploy-to-azure.yml/badge.svg)](https://github.com/mockten/IaC/actions/workflows/deploy-to-azure.yml)
 
-## For Local Environment
-Before proceeding, ensure you have the following tools installed on your system:
+<!-- Destroy -->
+[![Destroy(GCP)](https://github.com/mockten/IaC/actions/workflows/destroy-gcp.yml/badge.svg)](https://github.com/mockten/IaC/actions/workflows/destroy-gcp.yml)
+[![AWS 3.Destroy](https://github.com/mockten/IaC/actions/workflows/destroy-aws.yml/badge.svg)](https://github.com/mockten/IaC/actions/workflows/destroy-aws.yml)
+[![Destroy(Azure)](https://github.com/mockten/IaC/actions/workflows/destroy-azure-env.yml/badge.svg)](https://github.com/mockten/IaC/actions/workflows/destroy-azure-env.yml)
 
-- [Terraform](https://www.terraform.io/downloads.html)
-- [gotask](https://taskfile.dev/#/installation)
+This repository is the **Infrastructure-as-Code** for [**mockten**](https://github.com/mockten/mockten), a full-featured, microservice-based e-commerce platform. The application code lives in the mockten repo; **here we provision and deploy it reproducibly with Terraform** onto Kubernetes — locally (docker-desktop) and on the public-cloud free tiers (GCP / AWS / Azure).
 
-## Google Authentication Setup
-To use Goole SignUp/SignIn, please create Google auth client like below.
-<img width="1594" height="1292" alt="CleanShot 2025-07-22 at 13 16 15@2x" src="https://github.com/user-attachments/assets/0769cb4f-53b3-4558-be68-53ddffb899ce" />
-| Setting                   | Value                                                |
-|---------------------------|------------------------------------------------------|
-| Application type          | Web application                                    |
-| Authorized Redirect URIs | http://localhost/api/uam/broker/google/endpoint     |
+One `terraform apply` from an empty state builds everything — network, cluster, ingress, TLS, DNS delegation, and all the mockten workloads — so it drops straight into a CD pipeline. The same `common/k8s` module is shared across every target, so the surfaces below behave the same wherever they run.
 
-Once you get Client ID/secret, please set the values in `local.tfvars` (see below).
-<img width="1098" height="492" alt="CleanShot 2025-07-23 at 21 47 39@2x" src="https://github.com/user-attachments/assets/b417cfc0-266c-4312-9e05-e84624c900dc" />
+## Platform surfaces
 
-## Facebook Authentication Setup
-To use Facebook SignUp/SignIn, please create App in [Facebook Developer](https://developers.facebook.com/apps/)
-<img width="2016" height="754" alt="CleanShot 2025-07-22 at 16 38 38@2x" src="https://github.com/user-attachments/assets/b4b95c3b-b75d-4a2e-bf05-464df6c0c09e" />
-Once you get App ID/secret, please set the values in `local.tfvars` (see below).
+mockten exposes four web surfaces behind one ingress. The path is identical everywhere; only the host changes between a local cluster and a cloud deployment:
 
+| Surface | Local (docker-desktop) | Cloud | Who it's for |
+|---------|------------------------|-------|--------------|
+| **Mockten storefront** | `http://localhost/` | `https://[YOUR DOMAIN]/` | Buyers — browse, search, cart, checkout |
+| **Developer Dashboard** | `http://localhost/dashboard` | `https://dashboard.[YOUR DOMAIN]/` | Operators/developers — monitoring & ops |
+| **Seller Portal** | `http://localhost/seller/login` | `https://sales.[YOUR DOMAIN]/` | Sellers — manage a store |
+| **Admin Portal** | `http://localhost/admin` | `https://admin.[YOUR DOMAIN]/` | Administrators — platform governance |
 
-## Verify Installation
+> `[YOUR DOMAIN]` is the apex you bring yourself (`ROOT_DOMAIN`). The `sales.` / `admin.` / `dashboard.` subdomains are derived from it automatically by Terraform.
 
-To confirm that both `terraform` and `gotask` are correctly installed, run the following commands:
+---
+
+### 🛒 Mockten storefront
+
+The buyer-facing shop. Sign in at `/user/login` (or via Google/Facebook SSO — see [Authentication](#authentication-setup)).
+<img width="2006" height="912" alt="SUPER SALE" src="https://github.com/user-attachments/assets/d2766e2c-6f27-430d-9bb0-be5ac9a082dd" />
+
+Full catalog, MeiliSearch full-text search, Redis-backed cart, Stripe (test-mode) checkout, distance-based shipping via the `geocoding` service, order history, reviews, and personalized recommendations. See the [mockten storefront docs](https://github.com/mockten/mockten#-mockten-storefront--httplocalhost) for the buyer flow and the Stripe test cards.
+
+<img width="1440" alt="Mockten storefront" src="https://github.com/user-attachments/assets/2bbd4a97-a5c7-47cf-99f2-168162273272" />
+
+---
+
+### 📊 Developer Dashboard
+
+A real-time internal portal for monitoring and operating the platform.
+
+| Panel | Description |
+|-------|-------------|
+| **Dashboard** | Running containers, CPU/memory charts, Kong API telemetry, MySQL/Redis stats, top & slowest endpoints. |
+| **Container List** | All workloads with status/uptime/resources. |
+| **Log Viewer** | Live container logs with filtering and search. |
+| **DB Viewer** | Browse MySQL tables with row-level CRUD. |
+| **Topology** | Visual graph of the microservice architecture and data flow. |
+| **API Specifications** | Every Kong route rendered with Description (EN/JA/ZH), Input/Response Schema, and a working **Test Request** form. |
+| **Access Management** | Keycloak realm config: clients, roles, identity providers. |
+| **Model Performance** | Recommendation model metadata and metrics (Precision@K, Recall@K, NDCG, AUC, MRR, Hit Rate, Coverage). |
+| **Data Pipeline** | Triggers and monitors the Airflow ETL DAG. |
+
+> On a Kubernetes deployment (local k8s + cloud) the Dashboard shows a **`K8S`** badge and the deployed version; in mockten's own dev-compose it runs in DEV mode instead.
+
+<img width="2406" alt="Developer Dashboard" src="https://github.com/user-attachments/assets/bc28f402-395b-46cf-a57d-315e38f34005" />
+
+---
+
+### 🏪 Seller Portal
+
+Where sellers manage their store, all backed by live data.
+
+- **Auth**: sign-up creates a Keycloak user in the **Seller** group; sign-in verifies the `seller` role. New sellers start **pending** until an administrator approves them.
+- **Overview**: Total Revenue / Orders / Products Sold / Customers with month-over-month change, plus Recent Orders.
+- **Products**: paginated list with status labels, Add/Edit product with up to 3 MinIO images, activate/deactivate.
+- **Orders / Settings**: orders containing the seller's products; edit Store Name and the storefront "About the Vendor" description.
+
+<img width="2400" alt="Seller Portal overview" src="https://github.com/user-attachments/assets/5cecc765-8379-4eee-91cc-c3e8a57b97a6" />
+
+---
+
+### 🛡️ Admin Portal
+
+Platform governance for administrators, backed by live Keycloak and backend data. Sign in with an administrator account (e.g. `superadmin` / `superadmin` in local dev).
+
+- **User Management**: All / Active / Pending / Suspended filters; create, edit, approve pending sellers, suspend, delete.
+- **Order Monitoring**: *flagged* orders with a derived reason (failed/canceled, unusual location, rapid orders, high value).
+- **System Health**: live component health and System Alerts from real backend metrics.
+- **Activity Logs**: platform-wide audit trail, paginated.
+
+<img width="2308" height="1156" alt="Admin Portal" src="https://github.com/user-attachments/assets/cdabae6a-223e-4c8c-98fe-2837c37bd92f" />
+
+---
+
+## Architecture
+<img width="2022" height="1200" alt="Architecture" src="https://github.com/user-attachments/assets/bcc309dd-e565-4df1-9185-8820a4a88516" />
+
+### Services
+
+| Module | Language / Tech | Responsibility |
+|--------|-----------------|----------------|
+| `ecfront` | React + Vite + TypeScript | Storefront SPA plus the Seller and Admin portals |
+| `apigw` | Kong | API gateway — routing, auth plugins, rate limiting |
+| `uam` | Keycloak | User Account Management: buyers, sellers, admins, social login |
+| `product` | Go (Gin) | Product catalog: listing, detail, reviews, wishlist |
+| `searchitem` | Go | Product search backed by Meilisearch |
+| `cart` | Go + Redis | Shopping cart service |
+| `sale` | Go | Orders / sales, plus the admin monitoring & audit APIs |
+| `ecpay` | Go (Gin) | Payment processing (Stripe) |
+| `shipment` | Go | Shipment / delivery |
+| `ranking` | Go | Product ranking |
+| `recommendation` | Python (FastAPI + LightFM) | Personalized recommendations |
+| `geocoding` | Go | Address geocoding (Nominatim) |
+| `sync` | Bash / cron | Incremental MySQL → Meilisearch index sync |
+| `airflow` | Python (Apache Airflow) | Bronze→Silver→Gold ETL pipeline + model training |
+| `mysql` | MySQL | Primary relational datastore + schema/seed |
+| `redis` | Redis | Cache / cart backing store |
+| `meilisearch` | Meilisearch | Full-text search engine |
+| `minIO` | MinIO | S3-compatible object storage (product images, ML models) |
+| `monitoring` | Node dashboard | The Developer Dashboard |
+
+All of these are packaged as reusable modules under [`common/k8s`](common/k8s) and deployed identically by each cloud/local root.
+
+---
+
+## How this repo works
+
+Terraform roots, one per target — all consuming the same `common/k8s` module:
+
+| Root | Target | State |
+|------|--------|-------|
+| [`local`](local) | local Kubernetes (docker-desktop) | local state |
+| [`gcp`](gcp) | GKE — **the reference implementation** ([gcp/README.md](gcp/README.md)) | GCS backend |
+| [`aws`](aws) | EKS — **draft, never applied** | S3 backend |
+| [`azure`](azure) | AKS — draft | — |
+
+**Configuration comes only from `TF_VAR_*` environment variables — never a committed `tfvars`.** Locally they are exported from the gitignored `.env` (copy [`.env.example`](.env.example)); in CI they come from GitHub secrets. The variable names are identical everywhere, so the same `terraform apply` runs in both. See [gcp/README.md](gcp/README.md#github-actions-secrets) for the full secret list and the `.env` → GitHub-secret name mapping.
+
+### CI / CD
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| **DryRun(minikube)** | push (automatic) | `terraform plan` for the local root — no cloud account needed |
+| **DryRun(GCP / AWS / Azure)** | manual | `init` → `validate` → `plan` against each cloud root |
+| **Deploy(GCP / AWS / Azure)** | manual | `terraform apply` — brings the platform up |
+| **Destroy(GCP / AWS / Azure)** | manual (types a confirm value) | `terraform destroy` — tears it down |
+
+Only the lightweight local plan runs automatically on push; every cloud `apply`/`destroy` is a deliberate manual button, so a destroy is never one mis-click from an apply, and a clone without cloud secrets never fails on every push.
+
+---
+
+## Running locally (local Kubernetes)
+
+Requires a running **docker-desktop** Kubernetes cluster, `terraform`, `kubectl`, and [`gotask`](https://taskfile.dev). Configuration is read from `.env`.
 
 ```sh
-terraform -v
-task -v
+cp .env.example .env      # then fill in your values (see .env.example)
+task setup                # fetch product photos
+task build                # terraform apply against the docker-desktop cluster
 ```
 
-To build infrastructure locally, follow these steps:
-1. (For GitHub Codespace User) Open your GitHub Cordspace User
-2. (For GitHub Codespace User) please execute the following commands:
+Open the storefront at `http://localhost/user/login`; the other surfaces are at `/dashboard`, `/seller/login`, and `/admin/login`.
 
-    ```sh
-    task codespace_k8s_setup
-    ```
-    ![CleanShot 2024-12-15 at 03 39 27](https://github.com/user-attachments/assets/32a5c9a1-15cd-432d-bc92-5e21cd3e81da)
+- **/user/login**
+  <img width="1344" height="1412" alt="user login" src="https://github.com/user-attachments/assets/e2f004c4-aedb-4bde-9213-9bbda96eabba" />
+- **/dashboard**
+  <img width="2542" height="1486" alt="dashboard" src="https://github.com/user-attachments/assets/4a10dc35-9b57-40f4-a51d-14de32ee6efb" />
+- **/seller/login**
+  <img width="1232" height="1270" alt="seller login" src="https://github.com/user-attachments/assets/172280c5-2a26-4262-9240-90f89e91c9cc" />
+- **/admin/login**
+  <img width="1006" height="1220" alt="admin login" src="https://github.com/user-attachments/assets/f7ebbf69-2199-4c2a-9b82-fef818d46967" />
 
+Tear it down with `task destroy`.
 
-3. Create a `local.tfvars` file in the `local` directory with the following content:
+## Deploying to a cloud
 
-    ```hcl
-    github_username       = "GITHUB_USERNAME"
-    github_token          = "GITHUB_TOKEN"
-    github_email          = "GIT_HUB_EMAIL"
+The reference target is **GKE**. See **[gcp/README.md](gcp/README.md)** for the one-time prerequisites (project, APIs, state bucket, domain, deploy service-account key) and the exact secret list, then run the **Deploy(GCP)** workflow from the Actions tab. `AWS`/`Azure` follow the same shape (drafts).
 
-    # Optional: OAuth credentials for social login
-    # google_client_id     = "YOUR_GOOGLE_CLIENT_ID"
-    # google_client_secret = "YOUR_GOOGLE_CLIENT_SECRET"
-    # facebook_client_id   = "YOUR_FACEBOOK_CLIENT_ID"
-    # facebook_client_secret = "YOUR_FACEBOOK_CLIENT_SECRET"
+After apply, Terraform pushes the nameserver delegation to your registrar and cert-manager issues Let's Encrypt certificates automatically; the ingress is locked to `ALLOWLIST_CIDR` (the one IP allowed to reach it).
 
-    # Optional: Stripe secret key for payment testing
-    # stripe_secret_key    = "sk_test_..."
-    ```
-4. To init k8s in your local environment, please execute the following commands:
+---
 
-    ```sh
-    task init
-    ```
-5. To build k8s in your local environment, please execute the following commands:
+## Authentication setup
 
-    ```sh
-    task build
-    ```
-6. (For GitHub Codespace User) Please open a new terminal and execute the following commands:
+To enable Google / Facebook sign-in, create OAuth apps and register the redirect URIs. Because mockten runs both locally and in the cloud, register **both** URIs on the app you use:
 
-    ```sh
-    task codespsace_portforward
-    ```
-    ![CleanShot 2024-12-15 at 03 55 34](https://github.com/user-attachments/assets/5f47db75-dac4-4dda-a025-867b92d799e5)
+| Provider | Local redirect URI | Cloud redirect URI |
+|----------|--------------------|--------------------|
+| Google | `http://localhost/api/uam/broker/google/endpoint` | `https://[YOUR DOMAIN]/api/uam/broker/google/endpoint` |
+| Facebook | `http://localhost/api/uam/broker/facebook/endpoint` | `https://[YOUR DOMAIN]/api/uam/broker/facebook/endpoint` |
 
-7. To clean up, please execute the following commands:
+<img width="1594" height="1292" alt="Google OAuth client" src="https://github.com/user-attachments/assets/0769cb4f-53b3-4558-be68-53ddffb899ce" />
 
-    ```sh
-    task destroy
-    ```
-8. (For Non GitHub Codespace User) you can access to mockten app with "http://localhost"
-9. (For GitHub Codespace User) you can access to mockten app using forward for "http://localhost:8080"
+Put the **dev** app credentials in `.env` (`GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`, `FACEBOOK_*`) for local. For a cloud deployment you may use a **separate** OAuth app so a leaked dev secret can't be used against production — set `CLOUD_GOOGLE_*` / `CLOUD_FACEBOOK_*`; if unset, the dev app is reused. In CI, only the cloud app values are needed (see [gcp/README.md](gcp/README.md#github-actions-secrets)).
 
-## Additional Tasks
+## Payment (Stripe) setup
 
-| Task | Description |
-|------|-------------|
-| `task hc` | Health check - verify all pods are running |
-| `task hc-deep` | Deep health check - verify HTTP endpoints respond |
-| `task seed-data` | Wait for MySQL readiness and verify data |
-| `task e2e` | Run Playwright E2E test suite |
-| `task e2e-sales` | Run Seller Portal E2E tests |
-| `task e2e-admin` | Run Admin Portal E2E tests |
-| `task reset-stock` | Reset stock for E2E testing |
-| `task logs DEPLOY=name` | Tail logs from a specific deployment |
-![CleanShot 2024-12-15 at 03 57 35](https://github.com/user-attachments/assets/2fd67a5f-15e6-42b0-ad4d-5aad6a313725)
-![CleanShot 2024-12-15 at 03 58 09](https://github.com/user-attachments/assets/b0eaf223-9943-4853-b159-8833718547ba)
+Card payments use [Stripe](https://stripe.com/) in **test mode**. From **Developers → API keys**, copy the **Publishable** (`pk_test_…`) and **Secret** (`sk_test_…`) keys into `.env` as `STRIPE_PUBLIC_KEY` / `STRIPE_SECRET_KEY`. `.env` is gitignored, so keys stay local; in CI they come from GitHub secrets.
 
+<img width="1642" height="736" alt="Stripe keys" src="https://github.com/user-attachments/assets/d458bd0d-8046-4427-a2ae-440ad1acb9ce" />
 
+The `ecfront` image is environment-agnostic — no key is baked in. Terraform injects `STRIPE_PUBLIC_KEY` into the container from the environment at deploy time (rendered into `/config.js` at container start), so the same image promotes from local to cloud unchanged. Use test cards such as `4242 4242 4242 4242` — no real money moves.
+
+---
+
+## Requirements
+
+| Tool | Version | For |
+|------|---------|-----|
+| [Terraform](https://developer.hashicorp.com/terraform/downloads) | 1.9.5 | every root |
+| [gotask](https://taskfile.dev/#/installation) | latest | the local `task` runner |
+| [kubectl](https://kubernetes.io/docs/tasks/tools/) | latest | talking to the cluster |
+| Docker Desktop (Kubernetes enabled) | 24+ | the local cluster |
+| [gcloud](https://cloud.google.com/sdk/docs/install) / [aws](https://aws.amazon.com/cli/) / [az](https://learn.microsoft.com/cli/azure/install-azure-cli) | latest | the cloud you target |

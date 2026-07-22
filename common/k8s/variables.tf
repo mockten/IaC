@@ -164,6 +164,18 @@ variable "e2e_admin_password" {
   default     = ""
 }
 
+variable "enable_seed_job" {
+  description = "Run the in-cluster behavior-seeder Job after apply. Cloud roots set true so a fresh cluster trains the recommendation model; local leaves it false and seeds via the Taskfile instead."
+  type        = bool
+  default     = false
+}
+
+variable "seeder_image" {
+  description = "One-shot behavior-seeder image (mockten-published). Only used when enable_seed_job is true."
+  type        = string
+  default     = "ghcr.io/mockten/seeder:latest"
+}
+
 variable "dashboard_session_secret" {
   description = "Signing key for dashboard login sessions. Ignored unless dashboard_session_secret_enabled. Unmanaged means the container generates one per start, which logs everyone out on restart."
   type        = string

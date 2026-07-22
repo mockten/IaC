@@ -56,6 +56,7 @@ module "platform" {
   project                = var.project
   ingress_ip             = google_compute_address.ingress.address
   allowlist_cidr         = var.allowlist_cidr
+  egress_cidr            = "${module.nw.nat_ip}/32"
   letsencrypt_email      = var.letsencrypt_email
   acme_staging           = var.acme_staging
   workload_identity_pool = module.gke.workload_identity_pool
@@ -104,6 +105,11 @@ module "common_k8s" {
   # in common/k8s/variables.tf.
   mockten_mode       = "cloud"
   public_base_domain = var.root_domain
+
+  # A fresh cloud cluster has zero purchases, so the recommendation pipeline has
+  # nothing to train on. Run the in-cluster behavior seeder to populate purchase
+  # data and kick off training (local seeds via the Taskfile instead).
+  enable_seed_job = true
 
   # _enabled is the literal true, NOT `secret != ""` — the secret's value is
   # unknown until apply, and a count may not depend on that.

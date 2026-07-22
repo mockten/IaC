@@ -32,10 +32,20 @@ resource "google_compute_router" "router" {
   network = google_compute_network.vpc.id
 }
 
+# Static egress IP for Cloud NAT. Reserved (not AUTO_ONLY) so the cluster's own
+# egress address is stable and can be allowlisted on the ingress LB — otherwise
+# the dashboard's HTTPS self-check (pod → public URL) is blocked by
+# loadBalancerSourceRanges and the "Environment" panel reads PENDING forever.
+resource "google_compute_address" "nat" {
+  name   = "${var.name_prefix}-nat-ip"
+  region = var.region
+}
+
 resource "google_compute_router_nat" "nat" {
   name                               = "${var.name_prefix}-nat"
   router                             = google_compute_router.router.name
   region                             = var.region
-  nat_ip_allocate_option             = "AUTO_ONLY"
+  nat_ip_allocate_option             = "MANUAL_ONLY"
+  nat_ips                            = [google_compute_address.nat.self_link]
   source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
 }

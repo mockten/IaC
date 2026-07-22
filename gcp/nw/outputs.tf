@@ -13,3 +13,7 @@ output "pods_range_name" {
 output "services_range_name" {
   value = "services"
 }
+
+output "nat_ip" {
+  value = google_compute_address.nat.address
+}

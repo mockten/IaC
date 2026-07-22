@@ -10,6 +10,11 @@ variable "allowlist_cidr" {
   type = string
 }
 
+variable "egress_cidr" {
+  description = "The cluster's Cloud NAT egress IP as a /32, allowlisted on the ingress LB alongside allowlist_cidr so in-cluster health checks (dashboard → public URL) aren't blocked by loadBalancerSourceRanges."
+  type        = string
+}
+
 variable "letsencrypt_email" {
   type = string
 }

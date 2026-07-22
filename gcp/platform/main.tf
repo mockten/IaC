@@ -17,7 +17,7 @@ resource "helm_release" "ingress_nginx" {
     controller = {
       service = {
         loadBalancerIP           = var.ingress_ip
-        loadBalancerSourceRanges = [var.allowlist_cidr]
+        loadBalancerSourceRanges = [var.allowlist_cidr, var.egress_cidr]
         externalTrafficPolicy    = "Local"
       }
     }

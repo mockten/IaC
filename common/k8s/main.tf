@@ -188,3 +188,20 @@ module "dashboard" {
   session_secret_enabled = var.dashboard_session_secret_enabled
   session_secret         = var.dashboard_session_secret
 }
+
+# In-cluster behavior seeder. Off by default (local seeds via the Taskfile on the
+# host); the cloud roots enable it so a fresh apply trains the recommendation
+# model instead of leaving it empty. Runs after the data path and the APIs it
+# calls are up.
+module "seeder" {
+  count  = var.enable_seed_job ? 1 : 0
+  source = "./seeder"
+  image  = var.seeder_image
+  depends_on = [
+    module.mysql,
+    module.product,
+    module.apigw,
+    module.ranking,
+    module.recommendation,
+  ]
+}
