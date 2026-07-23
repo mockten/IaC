@@ -64,11 +64,29 @@ jobs:
         with:
           terraform_version: 1.9.5
 
-      # The control plane only admits allowlisted CIDRs. The runner's egress IP is
-      # dynamic, so add it for this run only (it never opens the data-plane ingress,
-      # which stays restricted to ALLOWLIST_CIDR).
+      # The control plane only admits allowlisted CIDRs, and the runner's egress IP
+      # is dynamic. Passing it as the TF var is enough for a FRESH apply (the cluster
+      # is created with the runner already authorized). But on a RE-apply the cluster
+      # already exists, so Terraform must refresh the in-cluster resources before it
+      # can apply the authorized-networks change — and the runner isn't allowlisted
+      # yet, so that refresh dies with "dial tcp <api-ip>:443: i/o timeout". So open
+      # the hole LIVE with gcloud first when the cluster exists, and pass the same
+      # value as the var (this never opens the data-plane ingress).
       - name: Authorize this runner on the control plane
-        run: echo "TF_VAR_master_authorized_extra=[\"$(curl -s https://api.ipify.org)/32\"]" >> "$GITHUB_ENV"
+        run: |
+          RUNNER_IP="$(curl -s https://api.ipify.org)/32"
+          echo "TF_VAR_master_authorized_extra=[\"${RUNNER_IP}\"]" >> "$GITHUB_ENV"
+          CLUSTER="$(gcloud container clusters list --project "${GCP_PROJECT}" --format='value(name)' | head -1)"
+          if [ -n "${CLUSTER}" ]; then
+            echo "Existing cluster ${CLUSTER} — authorizing this runner live before Terraform refresh."
+            NETS="$(echo "${TF_VAR_allowlist_cidr},${RUNNER_IP}" | tr -d '[:space:]')"
+            gcloud container clusters update "${CLUSTER}" \
+              --zone us-east1-b --project "${GCP_PROJECT}" \
+              --enable-master-authorized-networks \
+              --master-authorized-networks "${NETS}"
+          else
+            echo "No cluster yet — the fresh apply will create it with this runner authorized."
+          fi
 
       - name: Terraform init
         working-directory: gcp

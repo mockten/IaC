@@ -85,10 +85,11 @@ jobs:
           CLUSTER="$(gcloud container clusters list --project "${GCP_PROJECT}" --format='value(name)' | head -1)"
           if [ -n "${CLUSTER}" ]; then
             echo "Cluster ${CLUSTER} is up — authorizing this runner on the control plane."
+            NETS="$(echo "${TF_VAR_allowlist_cidr},${RUNNER_IP}" | tr -d '[:space:]')"
             gcloud container clusters update "${CLUSTER}" \
               --zone us-east1-b --project "${GCP_PROJECT}" \
               --enable-master-authorized-networks \
-              --master-authorized-networks "${TF_VAR_allowlist_cidr},${RUNNER_IP}"
+              --master-authorized-networks "${NETS}"
           else
             echo "No cluster found — removing orphaned Kubernetes/Helm resources from state."
             terraform state list 2>/dev/null \
