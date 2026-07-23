@@ -48,7 +48,7 @@ resource "aws_eks_cluster" "this" {
     subnet_ids              = concat(var.private_subnet_ids, var.public_subnet_ids)
     endpoint_private_access = true
     endpoint_public_access  = true
-    public_access_cidrs     = concat([var.allowlist_cidr], var.master_authorized_extra)
+    public_access_cidrs     = concat([for c in split(",", var.allowlist_cidr) : trimspace(c)], var.master_authorized_extra)
   }
 
   # Without this, `terraform destroy` leaves the cluster behind on some paths.

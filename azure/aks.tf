@@ -90,7 +90,7 @@ resource "azurerm_kubernetes_cluster" "this" {
   # The equivalent of GKE's master_authorized_networks. Same rule as the other
   # clouds: the API server admits the home IP plus, per-run, the CI runner.
   api_server_access_profile {
-    authorized_ip_ranges = concat([var.allowlist_cidr], var.master_authorized_extra)
+    authorized_ip_ranges = concat([for c in split(",", var.allowlist_cidr) : trimspace(c)], var.master_authorized_extra)
   }
 
   # Workload Identity, so cert-manager can touch the DNS zone without a secret.
@@ -187,7 +187,7 @@ resource "helm_release" "ingress_nginx" {
     controller = {
       service = {
         loadBalancerIP           = azurerm_public_ip.ingress.ip_address
-        loadBalancerSourceRanges = [var.allowlist_cidr]
+        loadBalancerSourceRanges = [for c in split(",", var.allowlist_cidr) : trimspace(c)]
         externalTrafficPolicy    = "Local"
         annotations = {
           "service.beta.kubernetes.io/azure-load-balancer-resource-group" = azurerm_kubernetes_cluster.this.node_resource_group

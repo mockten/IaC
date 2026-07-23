@@ -43,7 +43,7 @@ resource "helm_release" "ingress_nginx" {
           "service.beta.kubernetes.io/aws-load-balancer-scheme"          = "internet-facing"
           "service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled" = "true"
         }
-        loadBalancerSourceRanges = [var.allowlist_cidr]
+        loadBalancerSourceRanges = [for c in split(",", var.allowlist_cidr) : trimspace(c)]
         externalTrafficPolicy    = "Local"
       }
     }
