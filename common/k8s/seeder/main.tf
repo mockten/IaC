@@ -16,12 +16,13 @@ resource "kubernetes_job" "seed" {
   }
 
   spec {
-    # Auto-delete the finished Job (and its pod) 10 minutes after it completes, so
-    # it stops showing up as a permanent "Exited/Succeeded" entry in the Container
-    # List. Long enough to read its logs first. Note: because Terraform then sees
-    # the Job gone, the next `apply` recreates it — i.e. every deploy re-seeds and
-    # re-triggers training, which keeps the model fresh on each rollout.
-    ttl_seconds_after_finished = 600
+    # Auto-delete the finished Job (and its pod) 5 minutes after it completes, so
+    # one-shot Jobs never linger as "Exited/Succeeded" entries in the Container List
+    # (long-running Deployments stay visible so failures are still noticed). Long
+    # enough to read its logs first. Note: because Terraform then sees the Job gone,
+    # the next `apply` recreates it — i.e. every deploy re-seeds and re-triggers
+    # training, which keeps the model fresh on each rollout.
+    ttl_seconds_after_finished = 300
     backoff_limit              = 3
     template {
       metadata {
