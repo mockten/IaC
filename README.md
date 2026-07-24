@@ -64,7 +64,8 @@ A real-time internal portal for monitoring and operating the platform.
 
 > On a Kubernetes deployment (local k8s + cloud) the Dashboard shows a **`K8S`** badge and the deployed version; in mockten's own dev-compose it runs in DEV mode instead.
 
-<img width="2406" alt="Developer Dashboard" src="https://github.com/user-attachments/assets/bc28f402-395b-46cf-a57d-315e38f34005" />
+<img width="2982" height="1492" alt="CleanShot 2026-07-24 at 10 43 24@2x" src="https://github.com/user-attachments/assets/73da13b6-b60c-47cc-9d85-e0ec9fbbb6cd" />
+
 
 ---
 
@@ -167,7 +168,7 @@ Open the storefront at `http://localhost/user/login`; the other surfaces are at 
 - **/user/login**
   <img width="1344" height="1412" alt="user login" src="https://github.com/user-attachments/assets/e2f004c4-aedb-4bde-9213-9bbda96eabba" />
 - **/dashboard**
-  <img width="2542" height="1486" alt="dashboard" src="https://github.com/user-attachments/assets/4a10dc35-9b57-40f4-a51d-14de32ee6efb" />
+　 <img width="2982" height="1492" alt="CleanShot 2026-07-24 at 10 43 24@2x" src="https://github.com/user-attachments/assets/73da13b6-b60c-47cc-9d85-e0ec9fbbb6cd" />
 - **/seller/login**
   <img width="1232" height="1270" alt="seller login" src="https://github.com/user-attachments/assets/172280c5-2a26-4262-9240-90f89e91c9cc" />
 - **/admin/login**
