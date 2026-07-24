@@ -1,3 +1,9 @@
+variable "internal_ingress_ip" {
+  description = "ClusterIP of the ingress-nginx controller. When set, the dashboard resolves the public hostnames to it (hostAliases) so its readiness HTTPS self-check terminates TLS in-cluster instead of hairpinning to the external LB. Empty on local."
+  type        = string
+  default     = ""
+}
+
 variable "secret_name" {
   description = "The name of the Kubernetes secret for image pull"
   type        = string

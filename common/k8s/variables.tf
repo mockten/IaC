@@ -164,6 +164,12 @@ variable "e2e_admin_password" {
   default     = ""
 }
 
+variable "internal_ingress_ip" {
+  description = "ClusterIP of the ingress-nginx controller, passed through to the dashboard so its readiness HTTPS check terminates TLS in-cluster (avoids the external-LB hairpin). Empty on local."
+  type        = string
+  default     = ""
+}
+
 variable "enable_seed_job" {
   description = "Run the in-cluster behavior-seeder Job after apply. Cloud roots set true so a fresh cluster trains the recommendation model; local leaves it false and seeds via the Taskfile instead."
   type        = bool

@@ -110,6 +110,26 @@ resource "kubernetes_deployment" "dashboard" {
       spec {
         service_account_name = kubernetes_service_account.dashboard.metadata[0].name
 
+        # Point the public hostnames at the in-cluster ingress ClusterIP. The
+        # readiness check fetches https://<domain>/ to prove TLS works; from a pod
+        # that hairpins to the external LB IP and times out (so "Environment" reads
+        # PENDING forever even with valid certs). With these aliases the fetch hits
+        # the ingress controller's ClusterIP directly, still with SNI=<domain>, so
+        # nginx serves the real cert and TLS terminates in-cluster. Only set in the
+        # cloud (var is empty on local, where the check is HTTP anyway).
+        dynamic "host_aliases" {
+          for_each = var.internal_ingress_ip == "" ? [] : [1]
+          content {
+            ip = var.internal_ingress_ip
+            hostnames = [
+              var.public_base_domain,
+              "sales.${var.public_base_domain}",
+              "admin.${var.public_base_domain}",
+              "dashboard.${var.public_base_domain}",
+            ]
+          }
+        }
+
         image_pull_secrets {
           name = var.secret_name
         }

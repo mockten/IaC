@@ -16,7 +16,13 @@ resource "kubernetes_job" "seed" {
   }
 
   spec {
-    backoff_limit = 3
+    # Auto-delete the finished Job (and its pod) 10 minutes after it completes, so
+    # it stops showing up as a permanent "Exited/Succeeded" entry in the Container
+    # List. Long enough to read its logs first. Note: because Terraform then sees
+    # the Job gone, the next `apply` recreates it — i.e. every deploy re-seeds and
+    # re-triggers training, which keeps the model fresh on each rollout.
+    ttl_seconds_after_finished = 600
+    backoff_limit              = 3
     template {
       metadata {
         labels = { app = "behavior-seeder" }

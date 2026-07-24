@@ -187,6 +187,7 @@ module "dashboard" {
   public_base_domain     = var.public_base_domain
   session_secret_enabled = var.dashboard_session_secret_enabled
   session_secret         = var.dashboard_session_secret
+  internal_ingress_ip    = var.internal_ingress_ip
 }
 
 # In-cluster behavior seeder. Off by default (local seeds via the Taskfile on the

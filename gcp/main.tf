@@ -111,6 +111,10 @@ module "common_k8s" {
   # data and kick off training (local seeds via the Taskfile instead).
   enable_seed_job = true
 
+  # Let the dashboard reach the ingress in-cluster for its readiness TLS check,
+  # instead of hairpinning to the external LB IP (which times out → PENDING).
+  internal_ingress_ip = module.platform.ingress_cluster_ip
+
   # _enabled is the literal true, NOT `secret != ""` — the secret's value is
   # unknown until apply, and a count may not depend on that.
   dashboard_session_secret_enabled = true
