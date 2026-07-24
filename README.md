@@ -95,7 +95,8 @@ Platform governance for administrators, backed by live Keycloak and backend data
 ---
 
 ## Architecture
-<img width="2022" height="1200" alt="Architecture" src="https://github.com/user-attachments/assets/bcc309dd-e565-4df1-9185-8820a4a88516" />
+<img width="2040" height="1120" alt="CleanShot 2026-07-24 at 10 40 02@2x" src="https://github.com/user-attachments/assets/6ff4afca-a999-444a-8358-82389f0b41a6" />
+
 
 ### Services
 
