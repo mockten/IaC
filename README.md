@@ -151,6 +151,60 @@ Terraform roots, one per target — all consuming the same `common/k8s` module:
 
 Only the lightweight local plan runs automatically on push; every cloud `apply`/`destroy` is a deliberate manual button, so a destroy is never one mis-click from an apply, and a clone without cloud secrets never fails on every push.
 
+### GitHub Actions secrets
+
+CI reads everything from repository secrets (**Settings → Secrets and variables → Actions**). The values are the same ones your local `.env` holds; only the source differs. Two things to watch when you copy them over:
+
+- The GitHub credentials are **renamed** `GITHUB_*` → `GH_*`.
+- For OAuth, CI only ever needs the **cloud** app: the workflows resolve `CLOUD_GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID`, and the only job that reads the bare `GOOGLE_CLIENT_ID` is `DryRun(minikube)`, which just plans and never exercises the value. So set the cloud app under `CLOUD_GOOGLE_*` / `CLOUD_FACEBOOK_*`; the dev/localhost OAuth app belongs in each developer's `.env`, not here.
+
+**Where each cloud's full setup is documented** — start here for the cloud you target:
+
+| Cloud | Setup doc |
+|-------|-----------|
+| **GCP** | [**gcp/README.md**](gcp/README.md#github-actions-secrets) — one-time prerequisites and the exact GCP secret list, including how to create the `GCP_SA_KEY` service-account key |
+| **AWS** (draft) | secret list in the header of [.github/workflows/dry-run-aws.yml](.github/workflows/dry-run-aws.yml) |
+| **Azure** (draft) | the `AZURE_*` / `MOCKTEN_REPO_PAT` secrets in [.github/workflows/deploy-to-azure.yml](.github/workflows/deploy-to-azure.yml) |
+
+The tables below are the quick reference; the per-cloud docs above have the step-by-step.
+
+**Shared — needed by every cloud (GCP / AWS / Azure):**
+
+| Secret | Source (`.env`) | What it is |
+|--------|-----------------|------------|
+| `GH_USERNAME` / `GH_TOKEN` / `GH_EMAIL` | `GITHUB_USERNAME` / `GITHUB_TOKEN` / `GITHUB_EMAIL` | ghcr.io image pull (**renamed**) |
+| `ROOT_DOMAIN` | `ROOT_DOMAIN` | apex domain served by the storefront, e.g. `example.dpdns.org` |
+| `LETSENCRYPT_EMAIL` | `LETSENCRYPT_EMAIL` | ACME account email for cert expiry notices |
+| `ALLOWLIST_CIDR` | `ALLOWLIST_CIDR` | IP(s) allowed at the ingress + control plane; **comma-separated** for several people, e.g. `1.2.3.4/32,5.6.7.8/32` |
+| `DOMAIN_API_KEY` | `DOMAIN_API_KEY` | registrar (DigitalPlat) token used to push nameserver delegation |
+| `STRIPE_SECRET_KEY` / `STRIPE_PUBLIC_KEY` | same | Stripe test-mode keys for payments |
+| `CLOUD_GOOGLE_CLIENT_ID` / `CLOUD_GOOGLE_CLIENT_SECRET` | same | **cloud** Google OAuth app (redirect URI `https://${ROOT_DOMAIN}/...`) |
+| `CLOUD_FACEBOOK_CLIENT_ID` / `CLOUD_FACEBOOK_CLIENT_SECRET` | same | optional — omit to reuse the dev Facebook app |
+
+**GCP — `Deploy/DryRun/Destroy (GCP)`:**
+
+| Secret | What it is |
+|--------|------------|
+| `GCP_SA_KEY` | full JSON key of the deploy service account (see [gcp/README.md](gcp/README.md#github-actions-secrets), Prerequisites step 5) |
+| `GCP_PROJECT` | GCP project id (also names the `${project}-tfstate` bucket) |
+
+**AWS (draft) — `AWS 1/2/3`:**
+
+| Secret | What it is |
+|--------|------------|
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | deploy IAM user (or switch the workflow to an OIDC role) |
+| `AWS_REGION` | e.g. `us-east-1` |
+| `AWS_TFSTATE_BUCKET` | S3 bucket holding Terraform state |
+
+**Azure (draft) — `Azure 1/2/3`:**
+
+| Secret | What it is |
+|--------|------------|
+| `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET` / `AZURE_SUBSCRIPTION_ID` / `AZURE_TENANT_ID` | service-principal credentials (`ARM_*`) |
+| `MOCKTEN_REPO_PAT` | PAT the Azure root uses to reach the mockten repo |
+
+You only need the block for the cloud you actually deploy to. `DryRun(minikube)` needs just the shared app secrets (it plans the local root); the GCP/AWS/Azure blocks are read only by their own workflows.
+
 ---
 
 ## Running locally (local Kubernetes)

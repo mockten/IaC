@@ -124,11 +124,25 @@ jobs:
             terraform destroy -auto-approve
           fi
 
-      # StatefulSet volumeClaimTemplate PVCs are owned by nothing, so neither
-      # Kubernetes nor Terraform removes them. On GKE they keep billing as
-      # persistent disks after the cluster is gone.
-      - name: Report any disks left behind
+      # StatefulSet volumeClaimTemplate PVCs are owned by nothing Terraform tracks:
+      # the CSI driver provisions the backing PD dynamically, and the PVC retention
+      # policy is Retain (so data survives an app-layer redeploy). A full teardown
+      # therefore leaves those pvc-* disks orphaned and still billing. Delete the
+      # unattached ones so a destroy is actually clean. `if: always()` so it also
+      # cleans up after a partial destroy.
+      - name: Delete orphaned PVC disks
         if: always()
         run: |
-          gcloud compute disks list --project "${GCP_PROJECT}" \
-            --filter="name~'^gke-|pvc-'" --format="table(name,zone,sizeGb,status)" || true
+          DISKS=$(gcloud compute disks list --project "${GCP_PROJECT}" \
+            --filter="name~'^pvc-' AND -users:*" \
+            --format="value(name,zone.basename())")
+          if [ -z "${DISKS}" ]; then
+            echo "No orphaned PVC disks left behind."
+          else
+            echo "${DISKS}" | while read -r NAME ZONE; do
+              [ -z "${NAME}" ] && continue
+              echo "Deleting orphaned disk ${NAME} (${ZONE})"
+              gcloud compute disks delete "${NAME}" --zone "${ZONE}" \
+                --project "${GCP_PROJECT}" --quiet || true
+            done
+          fi
