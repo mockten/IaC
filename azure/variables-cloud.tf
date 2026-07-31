@@ -91,3 +91,40 @@ variable "stripe_public_key" {
   type    = string
   default = ""
 }
+
+# ── AKS infrastructure knobs (consumed by the root main.tf) ──────────────────
+variable "az_location" {
+  # eastus frequently returns AKSCapacityHeavyUsage (region at capacity for new
+  # clusters). All regions share the same tiny trial vCPU quota (4), so moving is
+  # free — pick one that can currently create a cluster. The tfstate backend stays
+  # in eastus regardless (backend region need not match the resources').
+  description = "Azure region for the cluster and its resource group."
+  type        = string
+  default     = "eastus2"
+}
+
+variable "az_resource_group" {
+  type    = string
+  default = "mockten-rg"
+}
+
+variable "az_cluster_name" {
+  type    = string
+  default = "mockten-aks"
+}
+
+variable "az_kubernetes_version" {
+  # Must be a GA (KubernetesOfficial) minor, not LTS-only — the "1.31" alias now
+  # resolves to an LTS-only patch (K8sVersionNotSupported on a Free/Standard
+  # cluster). Check: az aks get-versions --location <loc>
+  #   --query "values[?contains(capabilities.supportPlan, 'KubernetesOfficial')].version".
+  description = "Pinned AKS minor version. Must be a GA (non-LTS) version supported in az_location."
+  type        = string
+  default     = "1.34"
+}
+
+variable "az_storage_class" {
+  description = "managed-csi is the default AKS class and binds WaitForFirstConsumer, which is what the minio and mysql PVCs need."
+  type        = string
+  default     = "managed-csi"
+}

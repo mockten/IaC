@@ -10,12 +10,8 @@ data "kubernetes_service" "ingress_controller" {
   depends_on = [helm_release.ingress_nginx]
 }
 
-# Host-based HTTPS Ingress for AKS — the routing + TLS layer that mirrors
-# gcp/platform/ingress.tf. cert-manager auto-issues a cert per host from the tls
-# block + the "letsencrypt" cluster-issuer annotation (defined in aks.tf). Without
-# these Ingress objects the ingress-nginx controller has a public IP but no routes,
-# and cert-manager has nothing to issue certs for.
-
+# Host-based HTTPS Ingress. cert-manager auto-issues a cert per host from the tls
+# block + the "letsencrypt" cluster-issuer annotation. Mirrors gcp/platform/ingress.tf.
 locals {
   # Longest-prefix wins in nginx; all Prefix for safety. Same routing as GKE.
   ecfront_paths = [
@@ -23,17 +19,14 @@ locals {
     { path = "/api/", svc = "apigw-service", port = 80 },
     { path = "/realms/mockten-realm-dev/broker/", svc = "uam-service", port = 80 },
     { path = "/realms/mockten-realm-dev/login-actions/", svc = "uam-service", port = 80 },
-    # Keycloak's own CSS/JS/images; without this they fall through to "/" and the
-    # storefront SPA answers 200 with index.html for every asset, rendering the
-    # login pages unstyled.
     { path = "/resources/", svc = "uam-service", port = 80 },
     { path = "/", svc = "ecfront-service", port = 80 },
   ]
 
   ecfront_hosts = {
-    store = { host = local.az_host_store, app_root = null }
-    sales = { host = local.az_host_sales, app_root = "/seller/login" }
-    admin = { host = local.az_host_admin, app_root = "/admin" }
+    store = { host = var.host_store, app_root = null }
+    sales = { host = var.host_sales, app_root = "/seller/login" }
+    admin = { host = var.host_admin, app_root = "/admin" }
   }
 }
 
@@ -90,11 +83,11 @@ resource "kubernetes_ingress_v1" "dashboard" {
   spec {
     ingress_class_name = "nginx"
     tls {
-      hosts       = [local.az_host_dashboard]
+      hosts       = [var.host_dashboard]
       secret_name = "dashboard-tls"
     }
     rule {
-      host = local.az_host_dashboard
+      host = var.host_dashboard
       http {
         path {
           path      = "/"

@@ -1,9 +1,8 @@
-# DRAFT — never applied. Mirrors gcp/ so the same common/k8s module runs on AKS.
+# Providers and remote state for the AKS root. Mirrors gcp/ so the same
+# common/k8s module runs on AKS. The kubernetes/helm/kubectl providers are
+# configured from the aks module's kube_config outputs.
 #
-# NOTE: this directory still contains an older VM-based design (fw/, vmss/, and
-# the legacy main.tf/variables.tf). Those modules are not referenced by aks.tf
-# and are left in place rather than deleted. Remove them once this draft is
-# proven, or move them to azure/legacy/.
+# The older VM-based design lives in azure/legacy/ and is not part of this root.
 terraform {
   required_version = ">= 1.9.0"
 
@@ -52,29 +51,28 @@ provider "azurerm" {
   }
 }
 
-# Credentials come straight off the cluster resource, so there is no kubeconfig
-# on disk and no context to mis-point — the failure mode that once had a local
-# command delete a cloud cluster's volumes.
+# Credentials come straight off the cluster (via the aks module outputs), so there
+# is no kubeconfig on disk and no context to mis-point.
 provider "kubernetes" {
-  host                   = azurerm_kubernetes_cluster.this.kube_config.0.host
-  client_certificate     = base64decode(azurerm_kubernetes_cluster.this.kube_config.0.client_certificate)
-  client_key             = base64decode(azurerm_kubernetes_cluster.this.kube_config.0.client_key)
-  cluster_ca_certificate = base64decode(azurerm_kubernetes_cluster.this.kube_config.0.cluster_ca_certificate)
+  host                   = module.aks.kube_host
+  client_certificate     = base64decode(module.aks.kube_client_certificate)
+  client_key             = base64decode(module.aks.kube_client_key)
+  cluster_ca_certificate = base64decode(module.aks.kube_cluster_ca_certificate)
 }
 
 provider "helm" {
   kubernetes {
-    host                   = azurerm_kubernetes_cluster.this.kube_config.0.host
-    client_certificate     = base64decode(azurerm_kubernetes_cluster.this.kube_config.0.client_certificate)
-    client_key             = base64decode(azurerm_kubernetes_cluster.this.kube_config.0.client_key)
-    cluster_ca_certificate = base64decode(azurerm_kubernetes_cluster.this.kube_config.0.cluster_ca_certificate)
+    host                   = module.aks.kube_host
+    client_certificate     = base64decode(module.aks.kube_client_certificate)
+    client_key             = base64decode(module.aks.kube_client_key)
+    cluster_ca_certificate = base64decode(module.aks.kube_cluster_ca_certificate)
   }
 }
 
 provider "kubectl" {
-  host                   = azurerm_kubernetes_cluster.this.kube_config.0.host
-  client_certificate     = base64decode(azurerm_kubernetes_cluster.this.kube_config.0.client_certificate)
-  client_key             = base64decode(azurerm_kubernetes_cluster.this.kube_config.0.client_key)
-  cluster_ca_certificate = base64decode(azurerm_kubernetes_cluster.this.kube_config.0.cluster_ca_certificate)
+  host                   = module.aks.kube_host
+  client_certificate     = base64decode(module.aks.kube_client_certificate)
+  client_key             = base64decode(module.aks.kube_client_key)
+  cluster_ca_certificate = base64decode(module.aks.kube_cluster_ca_certificate)
   load_config_file       = false
 }
