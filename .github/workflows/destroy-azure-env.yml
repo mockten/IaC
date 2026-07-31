@@ -1,9 +1,10 @@
 name: Azure 3.Destroy
 
-# Tears the whole Azure environment down. Manual only — the old cron schedule that
-# auto-destroyed the environment four times a day has been removed. Like GCP 3.Destroy,
-# this is a separate workflow from the deploy and demands a confirmation value be
-# typed in, so a destroy is never one mis-click from an apply.
+# Tears the whole Azure environment down, to GCP 3.Destroy parity. Manual only (the
+# old 4x/day cron is gone) and demands the subscription id be typed in, so a destroy
+# is never one mis-click from an apply. Works from ANY state — including a half-
+# destroyed one — and cleans up billing resources Terraform does not track (the AKS
+# node resource group's managed disks), so nothing keeps costing after it runs.
 
 on:
   workflow_dispatch:
@@ -12,6 +13,10 @@ on:
         description: "Type the Azure subscription id to confirm destruction"
         required: true
         type: string
+      keep_dns_zone:
+        description: "Keep the DNS zone + nameserver delegation (avoids re-delegating at the registrar on the next apply)"
+        type: boolean
+        default: false
 
 jobs:
   destroy:
@@ -21,9 +26,20 @@ jobs:
       ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      # Terraform reads TF_VAR_<name> natively, so no tfvars file is written to
-      # the runner's disk. `azure` only declares repo_pat; the github_* vars live in `local`.
-      TF_VAR_repo_pat: ${{ secrets.MOCKTEN_REPO_PAT }}
+      # Terraform needs the full variable set to build a plan even when it only destroys.
+      TF_VAR_github_username: ${{ secrets.GH_USERNAME }}
+      TF_VAR_github_token: ${{ secrets.GH_TOKEN }}
+      TF_VAR_github_email: ${{ secrets.GH_EMAIL }}
+      TF_VAR_google_client_id: ${{ secrets.CLOUD_GOOGLE_CLIENT_ID || secrets.GOOGLE_CLIENT_ID }}
+      TF_VAR_google_client_secret: ${{ secrets.CLOUD_GOOGLE_CLIENT_SECRET || secrets.GOOGLE_CLIENT_SECRET }}
+      TF_VAR_facebook_client_id: ${{ secrets.CLOUD_FACEBOOK_CLIENT_ID || secrets.FACEBOOK_CLIENT_ID }}
+      TF_VAR_facebook_client_secret: ${{ secrets.CLOUD_FACEBOOK_CLIENT_SECRET || secrets.FACEBOOK_CLIENT_SECRET }}
+      TF_VAR_stripe_secret_key: ${{ secrets.STRIPE_SECRET_KEY }}
+      TF_VAR_stripe_public_key: ${{ secrets.STRIPE_PUBLIC_KEY }}
+      TF_VAR_domain_api_key: ${{ secrets.DOMAIN_API_KEY }}
+      TF_VAR_allowlist_cidr: ${{ secrets.ALLOWLIST_CIDR }}
+      TF_VAR_root_domain: ${{ secrets.ROOT_DOMAIN }}
+      TF_VAR_letsencrypt_email: ${{ secrets.LETSENCRYPT_EMAIL }}
 
     steps:
       - name: Check the typed confirmation
@@ -39,16 +55,79 @@ jobs:
         with:
           terraform_version: 1.9.5
 
+      - name: Azure CLI login
+        run: az login --service-principal -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" --tenant "$ARM_TENANT_ID" -o none
+
       - name: Terraform init
         working-directory: azure
         run: terraform init
 
-      # A destroy that fails at plan time (an unknown value reaching a `count`) is
-      # the historical failure mode; surface it before anything is deleted.
+      # Make destroy work from ANY state, including a half-destroyed one.
+      #   1. Cluster still up  -> authorize this runner LIVE on the AKS API server
+      #      (setting the TF var alone is not enough on destroy).
+      #   2. Cluster already gone but its k8s objects still sit in state -> those died
+      #      with the cluster, so drop them from state; otherwise Terraform tries to
+      #      refresh them against an API endpoint that no longer exists and times out.
+      - name: Authorize this runner, or drop orphaned Kubernetes state
+        working-directory: azure
+        run: |
+          RUNNER_IP="$(curl -s https://api.ipify.org)/32"
+          echo "TF_VAR_master_authorized_extra=[\"${RUNNER_IP}\"]" >> "$GITHUB_ENV"
+          CLUSTER="$(az aks list --query '[0].name' -o tsv 2>/dev/null)"
+          RG="$(az aks list --query '[0].resourceGroup' -o tsv 2>/dev/null)"
+          if [ -n "${CLUSTER}" ]; then
+            NETS="$(echo "${TF_VAR_allowlist_cidr},${RUNNER_IP}" | tr -d '[:space:]')"
+            echo "Cluster ${CLUSTER} is up — authorizing this runner on the API server."
+            az aks update -g "${RG}" -n "${CLUSTER}" --api-server-authorized-ip-ranges "${NETS}" -o none
+          else
+            echo "No cluster found — removing orphaned Kubernetes/Helm resources from state."
+            terraform state list 2>/dev/null \
+              | grep -E 'helm_release\.|kubernetes_|kubectl_manifest\.' \
+              | while read -r addr; do echo "  state rm ${addr}"; terraform state rm "${addr}" || true; done
+          fi
+
       - name: Terraform plan -destroy
         working-directory: azure
         run: terraform plan -destroy -no-color
 
       - name: Terraform destroy
         working-directory: azure
-        run: terraform destroy -auto-approve
+        run: |
+          if [ "${{ inputs.keep_dns_zone }}" = "true" ]; then
+            # Everything except the DNS zone, its records, the NS delegation and the
+            # resource group that holds them. Keeping the zone avoids re-delegating
+            # nameservers at the registrar (and the propagation wait) on the next apply.
+            terraform destroy -auto-approve \
+              -target=module.common_k8s \
+              -target=kubernetes_ingress_v1.ecfront \
+              -target=kubernetes_ingress_v1.dashboard \
+              -target=kubectl_manifest.cluster_issuer \
+              -target=helm_release.cert_manager \
+              -target=helm_release.ingress_nginx \
+              -target=azurerm_role_assignment.certmgr_dns \
+              -target=azurerm_kubernetes_cluster.this \
+              -target=azurerm_public_ip.ingress \
+              -target=azurerm_subnet.nodes \
+              -target=azurerm_virtual_network.main
+          else
+            terraform destroy -auto-approve
+          fi
+
+      # Belt-and-suspenders billing cleanup. Deleting the AKS cluster normally
+      # cascades its managed node resource group (MC_*) and the dynamically-provisioned
+      # PVC disks in it, but a partial destroy can leave them — and they keep billing.
+      # The tfstate storage account lives in mockten-tfstate-rg, which never matches
+      # these patterns, so it is preserved.
+      - name: Delete leftover node resource groups and orphaned disks
+        if: always()
+        run: |
+          for RG in $(az group list --query "[?starts_with(name,'MC_mockten')].name" -o tsv); do
+            echo "Deleting leftover node resource group ${RG}"
+            az group delete -n "${RG}" --yes --no-wait || true
+          done
+          az disk list --query "[?diskState=='Unattached' && starts_with(name,'pvc-')].id" -o tsv \
+            | while read -r ID; do
+                [ -z "${ID}" ] && continue
+                echo "Deleting orphaned disk ${ID}"
+                az disk delete --ids "${ID}" --yes || true
+              done

@@ -70,6 +70,18 @@ resource "kubernetes_deployment" "uam" {
           port {
             container_port = 80
           }
+          # The image's entrypoint starts Keycloak with `--http-port=80`. A non-root
+          # process can bind 80 on GKE's COS nodes (ip_unprivileged_port_start=0) but
+          # NOT on AKS/EKS Ubuntu nodes (default 1024), where it crash-loops with
+          # "Port already bound: 80: Permission denied". NET_BIND_SERVICE does not
+          # help — capabilities are not ambient for a non-root process. Running as
+          # root binds the privileged port on any node OS, so it is the portable,
+          # deliberate choice here (rather than relying on GKE COS's lowered
+          # unprivileged-port start). Keycloak is fine as root; this keeps the image
+          # unchanged across GKE / AKS / local.
+          security_context {
+            run_as_user = 0
+          }
           env {
             name  = "KC_HOSTNAME"
             value = var.kc_hostname

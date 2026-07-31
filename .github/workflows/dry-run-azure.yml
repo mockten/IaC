@@ -1,32 +1,58 @@
 name: Azure 1.DryRun
 
+# Manual sanity check (workflow_dispatch): does the Azure config still init, validate,
+# and plan? Mirrors DryRun(GCP). Apply lives in Azure 2.Deploy and teardown in
+# Azure 3.Destroy, both workflow_dispatch (manual) on purpose.
+#
+# Uses the same repository secrets as Azure 2.Deploy.
+
 on:
   workflow_dispatch:
+
 jobs:
   dry-run:
     runs-on: ubuntu-latest
     env:
+      # The azurerm provider (and backend) authenticate from these natively.
       ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      # Terraform reads TF_VAR_<name> natively, so no tfvars file is written to
-      # the runner's disk and no secret goes through shell quoting.
-      # `azure` only declares repo_pat; the github_* vars live in `local`.
-      TF_VAR_repo_pat: ${{ secrets.MOCKTEN_REPO_PAT }}
+      # Terraform reads TF_VAR_<name> natively — no tfvars file touches the runner.
+      TF_VAR_github_username: ${{ secrets.GH_USERNAME }}
+      TF_VAR_github_token: ${{ secrets.GH_TOKEN }}
+      TF_VAR_github_email: ${{ secrets.GH_EMAIL }}
+      TF_VAR_google_client_id: ${{ secrets.CLOUD_GOOGLE_CLIENT_ID || secrets.GOOGLE_CLIENT_ID }}
+      TF_VAR_google_client_secret: ${{ secrets.CLOUD_GOOGLE_CLIENT_SECRET || secrets.GOOGLE_CLIENT_SECRET }}
+      TF_VAR_facebook_client_id: ${{ secrets.CLOUD_FACEBOOK_CLIENT_ID || secrets.FACEBOOK_CLIENT_ID }}
+      TF_VAR_facebook_client_secret: ${{ secrets.CLOUD_FACEBOOK_CLIENT_SECRET || secrets.FACEBOOK_CLIENT_SECRET }}
+      TF_VAR_stripe_secret_key: ${{ secrets.STRIPE_SECRET_KEY }}
+      TF_VAR_stripe_public_key: ${{ secrets.STRIPE_PUBLIC_KEY }}
+      TF_VAR_domain_api_key: ${{ secrets.DOMAIN_API_KEY }}
+      TF_VAR_allowlist_cidr: ${{ secrets.ALLOWLIST_CIDR }}
+      TF_VAR_root_domain: ${{ secrets.ROOT_DOMAIN }}
+      TF_VAR_letsencrypt_email: ${{ secrets.LETSENCRYPT_EMAIL }}
+
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
-    - name: Set up Terraform
-      uses: hashicorp/setup-terraform@v2
-      with:
-        terraform_version: 1.9.5
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
 
-    - name: Initialize Terraform for Azure
-      working-directory: azure
-      run: terraform init
+      # The azurerm backend (blob storage) authenticates from ARM_* above.
+      - name: Terraform init
+        working-directory: azure
+        run: terraform init
 
-    - name: Terraform Plan for Azure
-      working-directory: azure
-      run: terraform plan
+      - name: Terraform validate
+        working-directory: azure
+        run: terraform validate
+
+      # -refresh=false on purpose: the AKS API server only admits ALLOWLIST_CIDR, so
+      # a CI runner cannot reach the kubernetes/helm providers to refresh live state.
+      # This catches configuration and plan errors without cluster connectivity; the
+      # real refresh happens during the manual apply.
+      - name: Terraform plan
+        working-directory: azure
+        run: terraform plan -input=false -refresh=false

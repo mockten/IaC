@@ -7,9 +7,13 @@
 
 # ── Variables specific to this draft ─────────────────────────────────────────
 variable "az_location" {
-  description = "Azure region"
+  # eastus frequently returns AKSCapacityHeavyUsage (region at capacity for new
+  # clusters). All regions share the same tiny trial vCPU quota (4), so moving is
+  # free — just pick one that can currently create a cluster. The tfstate backend
+  # stays in eastus regardless (backend region need not match the resources').
+  description = "Azure region for the cluster and its resource group."
   type        = string
-  default     = "eastus"
+  default     = "eastus2"
 }
 
 variable "az_resource_group" {
@@ -23,9 +27,12 @@ variable "az_cluster_name" {
 }
 
 variable "az_kubernetes_version" {
-  description = "Pinned: an unpinned version silently upgrades on re-apply."
+  # Pinned: an unpinned version silently upgrades on re-apply. Use a supported GA
+  # minor — the "1.31" alias now resolves to an LTS-only patch (K8sVersionNotSupported
+  # on a Free/Standard cluster). Check the region's list: az aks get-versions --location <loc>.
+  description = "Pinned AKS minor version. Must be a GA (KubernetesOfficial) version, not LTS-only — check with: az aks get-versions --location <loc> --query \"values[?contains(capabilities.supportPlan, 'KubernetesOfficial')].version\"."
   type        = string
-  default     = "1.31"
+  default     = "1.34"
 }
 
 variable "az_storage_class" {
@@ -77,9 +84,15 @@ resource "azurerm_kubernetes_cluster" "this" {
   default_node_pool {
     name       = "primary"
     node_count = 2
-    # ~ the 2 x e2-standard-4 used on GKE. The stack is ~21 pods; smaller SKUs
-    # run out of pod slots before CPU, which shows up as pods stuck Pending.
-    vm_size    = "Standard_D4s_v5"
+    # 2 x D2s_v7 = 4 vCPU total, which fits a trial subscription's tiny regional
+    # vCPU quota (often just 4). Two nodes (not one bigger node) so the ~35 pods
+    # — the ~21 app pods plus kube-system — get enough pod slots; a single node
+    # runs out of slots before CPU and leaves pods stuck Pending. Bump to
+    # D4s_v7 / more nodes once the subscription quota is raised.
+    # v7 not v5: trial/free subscriptions restrict the allowed SKUs per region —
+    # D-series v5 is blocked in eastus, v7 is available (az vm list-skus
+    # --location <loc> --resource-type virtualMachines).
+    vm_size    = "Standard_D2s_v7"
     vnet_subnet_id = azurerm_subnet.nodes.id
   }
 
@@ -299,6 +312,13 @@ module "common_k8s" {
   e2e_admin_enabled  = true
   e2e_admin_user     = "e2e-admin@${var.root_domain}"
   e2e_admin_password = random_password.az_e2e_admin.result
+
+  # Parity with GCP so the dashboard reads all-READY on first open:
+  # - seed purchase data + train the recommendation model on a fresh cluster.
+  # - let the dashboard reach the ingress in-cluster for its readiness TLS check
+  #   instead of hairpinning to the external LB IP (which times out -> PENDING).
+  enable_seed_job     = true
+  internal_ingress_ip = data.kubernetes_service.ingress_controller.spec[0].cluster_ip
 
   depends_on = [azurerm_kubernetes_cluster.this]
 }

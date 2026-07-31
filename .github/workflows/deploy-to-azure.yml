@@ -1,7 +1,22 @@
 name: Azure 2.Deploy
 
+# Manual, like Deploy(GCP). Brings the mockten platform up on AKS from an empty
+# subscription (state backend + provider registration are one-time prerequisites,
+# see azure/README.md). `terraform apply` is idempotent: if a run fails partway,
+# just run it again — already-created resources are skipped and it continues.
+#
+# Required repository secrets: AZURE_CLIENT_ID / AZURE_CLIENT_SECRET /
+# AZURE_SUBSCRIPTION_ID / AZURE_TENANT_ID, plus the shared app set (GH_*, ROOT_DOMAIN,
+# LETSENCRYPT_EMAIL, ALLOWLIST_CIDR, DOMAIN_API_KEY, STRIPE_*, CLOUD_GOOGLE_*/GOOGLE_*,
+# FACEBOOK_*). See README.md "GitHub Actions secrets".
+
 on:
   workflow_dispatch:
+    inputs:
+      acme_staging:
+        description: "Issue TLS from Let's Encrypt STAGING (browsers warn, but the rate limit is effectively unmetered). Use while iterating."
+        type: boolean
+        default: false
 
 jobs:
   deploy:
@@ -11,40 +26,82 @@ jobs:
       ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      # Terraform reads TF_VAR_<name> natively, so no tfvars file is written to
-      # the runner's disk and no secret goes through shell quoting.
-      # `azure` only declares repo_pat; the github_* vars live in `local`.
-      TF_VAR_repo_pat: ${{ secrets.MOCKTEN_REPO_PAT }}
+      # Terraform reads TF_VAR_<name> natively — no tfvars file touches the runner.
+      TF_VAR_github_username: ${{ secrets.GH_USERNAME }}
+      TF_VAR_github_token: ${{ secrets.GH_TOKEN }}
+      TF_VAR_github_email: ${{ secrets.GH_EMAIL }}
+      TF_VAR_google_client_id: ${{ secrets.CLOUD_GOOGLE_CLIENT_ID || secrets.GOOGLE_CLIENT_ID }}
+      TF_VAR_google_client_secret: ${{ secrets.CLOUD_GOOGLE_CLIENT_SECRET || secrets.GOOGLE_CLIENT_SECRET }}
+      TF_VAR_facebook_client_id: ${{ secrets.CLOUD_FACEBOOK_CLIENT_ID || secrets.FACEBOOK_CLIENT_ID }}
+      TF_VAR_facebook_client_secret: ${{ secrets.CLOUD_FACEBOOK_CLIENT_SECRET || secrets.FACEBOOK_CLIENT_SECRET }}
+      TF_VAR_stripe_secret_key: ${{ secrets.STRIPE_SECRET_KEY }}
+      TF_VAR_stripe_public_key: ${{ secrets.STRIPE_PUBLIC_KEY }}
+      TF_VAR_domain_api_key: ${{ secrets.DOMAIN_API_KEY }}
+      TF_VAR_allowlist_cidr: ${{ secrets.ALLOWLIST_CIDR }}
+      TF_VAR_root_domain: ${{ secrets.ROOT_DOMAIN }}
+      TF_VAR_letsencrypt_email: ${{ secrets.LETSENCRYPT_EMAIL }}
+      TF_VAR_acme_staging: ${{ inputs.acme_staging }}
+
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Terraform
-      uses: hashicorp/setup-terraform@v3
-      with:
-        terraform_version: 1.9.5
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
 
-    - name: Initialize Terraform for Azure
-      working-directory: azure
-      run: terraform init
+      - name: Azure CLI login
+        run: az login --service-principal -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" --tenant "$ARM_TENANT_ID" -o none
 
-    - name: Terraform Apply for Azure
-      working-directory: azure
-      run: terraform apply -auto-approve
-      
-  local-k8s-deployment:
-    needs: deploy
-    #runs-on: [self-hosted, mockten-vmss]
-    runs-on: self-hosted
-    steps:
-    - name: Check if runner is working and output to /tmp/runner_status.txt
-      run: |
-        echo "GitHub Actions Runner is running on $(hostname)" > /tmp/runner_status.txt
-        echo "Working Directory: $(pwd)" >> /tmp/runner_status.txt
-        echo "Date: $(date)" >> /tmp/runner_status.txt
-    - name: Checkout repository
-      uses: actions/checkout@v4
-    - name: Set up Terraform
-      uses: hashicorp/setup-terraform@v3
-      with:
-        terraform_version: 1.9.5
+      # The AKS API server only admits ALLOWLIST_CIDR, and the runner's egress IP is
+      # dynamic. Passing it as the TF var is enough for a FRESH apply (the cluster is
+      # created with the runner already authorized). On a RE-apply the cluster exists,
+      # so Terraform must refresh in-cluster resources before it can apply the
+      # authorized-ranges change — and the runner isn't authorized yet, so that
+      # refresh times out. Open the hole LIVE with `az aks update` first when the
+      # cluster exists, and pass the same value as the var.
+      - name: Authorize this runner on the AKS API server
+        run: |
+          RUNNER_IP="$(curl -s https://api.ipify.org)/32"
+          echo "TF_VAR_master_authorized_extra=[\"${RUNNER_IP}\"]" >> "$GITHUB_ENV"
+          CLUSTER="$(az aks list --query '[0].name' -o tsv 2>/dev/null)"
+          RG="$(az aks list --query '[0].resourceGroup' -o tsv 2>/dev/null)"
+          if [ -n "${CLUSTER}" ]; then
+            NETS="$(echo "${TF_VAR_allowlist_cidr},${RUNNER_IP}" | tr -d '[:space:]')"
+            echo "Existing cluster ${CLUSTER} — authorizing this runner live before Terraform refresh."
+            az aks update -g "${RG}" -n "${CLUSTER}" --api-server-authorized-ip-ranges "${NETS}" -o none
+          else
+            echo "No cluster yet — the fresh apply will create it with this runner authorized."
+          fi
+
+      - name: Terraform init
+        working-directory: azure
+        run: terraform init
+
+      - name: Terraform apply
+        working-directory: azure
+        run: terraform apply -auto-approve
+
+      # cert-manager issues the four certs once the nameserver delegation propagates.
+      # Report rather than fail — the certificates retry on their own.
+      - name: Report certificate status
+        if: always()
+        run: |
+          CLUSTER="$(az aks list --query '[0].name' -o tsv 2>/dev/null)"
+          RG="$(az aks list --query '[0].resourceGroup' -o tsv 2>/dev/null)"
+          [ -z "${CLUSTER}" ] && { echo "No cluster found."; exit 0; }
+          az aks get-credentials -g "${RG}" -n "${CLUSTER}" --admin --overwrite-existing -o none
+          for i in $(seq 1 40); do
+            READY=$(kubectl get certificate -n default --no-headers 2>/dev/null | grep -c True || true)
+            [ "${READY:-0}" = "4" ] && break
+            sleep 15
+          done
+          kubectl get certificate -n default || true
+          kubectl get pods -n default || true
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Deployed to AKS"
+            echo "TLS: ${{ inputs.acme_staging && 'Let''s Encrypt STAGING (browsers will warn)' || 'Let''s Encrypt production' }}"
+          } >> "$GITHUB_STEP_SUMMARY"
