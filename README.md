@@ -136,7 +136,7 @@ Terraform roots, one per target — all consuming the same `common/k8s` module:
 | [`local`](local) | local Kubernetes (docker-desktop) | local state |
 | [`gcp`](gcp) | GKE — **the reference implementation** ([gcp/README.md](gcp/README.md)) | GCS backend |
 | [`aws`](aws) | EKS — **draft, never applied** | S3 backend |
-| [`azure`](azure) | AKS — draft | — |
+| [`azure`](azure) | AKS ([azure/README.md](azure/README.md)) | Azure Storage backend |
 
 **Configuration comes only from `TF_VAR_*` environment variables — never a committed `tfvars`.** Locally they are exported from the gitignored `.env` (copy [`.env.example`](.env.example)); in CI they come from GitHub secrets. The variable names are identical everywhere, so the same `terraform apply` runs in both. See [gcp/README.md](gcp/README.md#github-actions-secrets) for the full secret list and the `.env` → GitHub-secret name mapping.
 
@@ -164,7 +164,7 @@ CI reads everything from repository secrets (**Settings → Secrets and variable
 |-------|-----------|
 | **GCP** | [**gcp/README.md**](gcp/README.md#github-actions-secrets) — one-time prerequisites and the exact GCP secret list, including how to create the `GCP_SA_KEY` service-account key |
 | **AWS** (draft) | secret list in the header of [.github/workflows/dry-run-aws.yml](.github/workflows/dry-run-aws.yml) |
-| **Azure** (draft) | the `AZURE_*` / `MOCKTEN_REPO_PAT` secrets in [.github/workflows/deploy-to-azure.yml](.github/workflows/deploy-to-azure.yml) |
+| **Azure** | [**azure/README.md**](azure/README.md) — one-time prerequisites (service principal, tfstate storage, provider registration) and the `AZURE_*` secrets |
 
 The tables below are the quick reference; the per-cloud docs above have the step-by-step.
 
@@ -196,12 +196,11 @@ The tables below are the quick reference; the per-cloud docs above have the step
 | `AWS_REGION` | e.g. `us-east-1` |
 | `AWS_TFSTATE_BUCKET` | S3 bucket holding Terraform state |
 
-**Azure (draft) — `Azure 1/2/3`:**
+**Azure — `Azure 1/2/3`:**
 
 | Secret | What it is |
 |--------|------------|
-| `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET` / `AZURE_SUBSCRIPTION_ID` / `AZURE_TENANT_ID` | service-principal credentials (`ARM_*`) |
-| `MOCKTEN_REPO_PAT` | PAT the Azure root uses to reach the mockten repo |
+| `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET` / `AZURE_SUBSCRIPTION_ID` / `AZURE_TENANT_ID` | deploy service-principal credentials (mapped to `ARM_*`) |
 
 You only need the block for the cloud you actually deploy to. `DryRun(minikube)` needs just the shared app secrets (it plans the local root); the GCP/AWS/Azure blocks are read only by their own workflows.
 
