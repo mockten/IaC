@@ -23,6 +23,11 @@ variable "appgw_id" {
   type        = string
 }
 
+variable "aks_egress_ip_id" {
+  description = "Static public IP id (from ../nw) to pin the cluster's outbound SNAT to."
+  type        = string
+}
+
 variable "allowlist_cidr" {
   type = string
 }

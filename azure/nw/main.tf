@@ -33,6 +33,22 @@ resource "azurerm_subnet" "appgw" {
   address_prefixes     = [var.appgw_subnet_cidr]
 }
 
+# Static egress (SNAT) IP for the AKS cluster's outbound traffic, so the cluster's
+# public source IP is deterministic and known before the App Gateway/WAF and the
+# cluster are created. The dashboard's health check runs INSIDE the cluster and
+# probes the PUBLIC HTTPS endpoint (the App Gateway), so the cluster's own egress IP
+# must be allowlisted at BOTH the NSG (below) and the WAF (../appgw) — otherwise that
+# self-probe is blocked, times out, and the dashboard never reads READY even though
+# the site serves fine to real allowlisted clients. Created here (the first module)
+# so both appgw and aks can reference it without a dependency cycle.
+resource "azurerm_public_ip" "aks_egress" {
+  name                = "${var.name_prefix}-aks-egress-ip"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  allocation_method   = "Static"
+  sku                 = "Standard"
+}
+
 resource "azurerm_network_security_group" "appgw" {
   name                = "${var.name_prefix}-appgw-nsg"
   location            = var.location
@@ -72,7 +88,7 @@ resource "azurerm_network_security_group" "appgw" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_ranges    = ["80", "443"]
-    source_address_prefixes    = [for c in split(",", var.allowlist_cidr) : trimspace(c)]
+    source_address_prefixes    = concat([for c in split(",", var.allowlist_cidr) : trimspace(c)], ["${azurerm_public_ip.aks_egress.ip_address}/32"])
     destination_address_prefix = "*"
   }
   security_rule {

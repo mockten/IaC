@@ -50,5 +50,13 @@ resource "azurerm_kubernetes_cluster" "this" {
   network_profile {
     network_plugin = "azure"
     network_policy = "calico"
+
+    # Pin the cluster's outbound (SNAT) traffic to the static egress IP from ../nw,
+    # instead of an AKS-managed one that changes on recreate. That IP is allowlisted
+    # at the NSG and WAF, so the dashboard's in-cluster self-probe of the public
+    # HTTPS endpoint succeeds and the environment reads READY.
+    load_balancer_profile {
+      outbound_ip_address_ids = [var.aks_egress_ip_id]
+    }
   }
 }

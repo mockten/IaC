@@ -55,6 +55,7 @@ module "appgw" {
   resource_group_name = azurerm_resource_group.main.name
   appgw_subnet_id     = module.nw.appgw_subnet_id
   allowlist_cidr      = var.allowlist_cidr
+  aks_egress_ip       = module.nw.aks_egress_ip
 }
 
 module "aks" {
@@ -65,6 +66,7 @@ module "aks" {
   kubernetes_version      = var.az_kubernetes_version
   subnet_id               = module.nw.subnet_id
   appgw_id                = module.appgw.id
+  aks_egress_ip_id        = module.nw.aks_egress_ip_id
   allowlist_cidr          = var.allowlist_cidr
   master_authorized_extra = var.master_authorized_extra
 }

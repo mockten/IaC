@@ -49,7 +49,9 @@ resource "azurerm_web_application_firewall_policy" "appgw" {
       }
       operator           = "IPMatch"
       negation_condition = true
-      match_values       = [for c in split(",", var.allowlist_cidr) : trimspace(c)]
+      # Real allowlisted clients + the cluster's own egress IP (so the dashboard's
+      # in-cluster health check of the public HTTPS endpoint is not blocked).
+      match_values = concat([for c in split(",", var.allowlist_cidr) : trimspace(c)], ["${var.aks_egress_ip}/32"])
     }
   }
 
