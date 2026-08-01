@@ -105,10 +105,23 @@ jobs:
           else
             echo "No cluster found."
           fi
+          # Delete the LBC ALB now, up front. It holds the frontend SG (Terraform's
+          # aws_security_group.alb_frontend) and the LBC's own k8s-traffic SG, so any
+          # attempt to delete those SGs while the ALB lives fails DependencyViolation.
+          for ARN in $(aws elbv2 describe-load-balancers --query 'LoadBalancers[].LoadBalancerArn' --output text); do
+            V="$(aws elbv2 describe-tags --resource-arns "${ARN}" --query "TagDescriptions[0].Tags[?Key=='elbv2.k8s.aws/cluster'].Value" --output text)"
+            [ "${V}" = "mockten-eks" ] && { echo "Deleting ALB ${ARN}"; aws elbv2 delete-load-balancer --load-balancer-arn "${ARN}" || true; }
+          done
           echo "Dropping Kubernetes/Helm resources from state so Terraform teardown never touches the k8s API."
           terraform state list 2>/dev/null \
             | grep -E 'helm_release\.|kubernetes_|kubectl_manifest\.' \
             | while read -r addr; do echo "  state rm ${addr}"; terraform state rm "${addr}" || true; done
+          # Also stop Terraform managing the frontend SG. It cannot be deleted until
+          # both the ALB (above) and the LBC's k8s-traffic SG (which references it, and
+          # only clears once the cluster/nodes are gone) are removed — an ordering
+          # Terraform cannot see. The orphan-sweep step deletes it by VPC after the
+          # cluster is destroyed.
+          terraform state rm 'module.routing.aws_security_group.alb_frontend' 2>/dev/null || true
 
       # Two-pass teardown. A plain `terraform destroy` cannot finish on EKS the way
       # it does on GKE/AKS: there the cloud LB is a Service the cloud-controller
