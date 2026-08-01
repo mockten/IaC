@@ -1,18 +1,21 @@
 # mockten on AKS
 
 Terraform for the mockten platform on **Azure Kubernetes Service (AKS)** — the Azure
-sibling of [`aws/`](../aws). Like AWS (and unlike gcp/), Azure here is **cloud-native**,
-not ingress-nginx/cert-manager: **AGIC + Application Gateway (WAF_v2)** for ingress, and
-**Azure Front Door (Standard)** in front for edge caching and **managed TLS** (free,
-auto-renewing — the Let's Encrypt/ACM equivalent). It also stands up the VNet (node +
-App Gateway subnets), the AKS cluster, a DNS zone with automatic nameserver delegation,
-and the portable `common/k8s` workloads — the same module GKE and EKS deploy.
+sibling of [`aws/`](../aws). Like AWS (and unlike gcp/), the ingress is **cloud-native**,
+not ingress-nginx: **AGIC + Application Gateway (WAF_v2)** — the Azure counterpart to the
+AWS Load Balancer Controller + ALB. It also stands up the VNet (node + App Gateway
+subnets), the AKS cluster, a DNS zone with automatic nameserver delegation, and the
+portable `common/k8s` workloads — the same module GKE and EKS deploy.
 
-The site stays private without Front Door Premium: Front Door Standard has no WAF, so the
-per-user IP restriction lives on the **App Gateway WAF**, matching `ALLOWLIST_CIDR` against
-the client IP that Front Door forwards in `X-Forwarded-For` (so it expects /32 entries).
-Module order is `nw -> appgw -> aks(AGIC) -> role assignments -> common_k8s -> routing`,
-with `dns` + `cdn` (Front Door owns the DNS records) alongside.
+> **No CDN.** Azure Front Door (the CloudFront equivalent) is **forbidden on Free Trial /
+> Student subscriptions**, so there is no CDN layer and TLS is issued by **cert-manager**
+> (Let's Encrypt DNS-01 against the Azure DNS zone, via the cluster's managed identity) —
+> the same way gcp/ does it. On a pay-as-you-go subscription you could add Front Door back.
+
+The site stays private the simple way: clients reach the App Gateway directly, so both the
+subnet **NSG** and the **App Gateway WAF** restrict to `ALLOWLIST_CIDR` on the real client
+IP (CIDR ranges supported). Module order is
+`nw -> appgw -> aks(AGIC) -> role assignments -> dns -> platform(cert-manager) -> common_k8s -> routing`.
 
 One `terraform apply` from an empty subscription builds everything and the dashboard
 reads all-READY. It runs from CI via **Azure 2.Deploy** (manual) and is torn down by
@@ -78,10 +81,8 @@ Locally the repo `.env` (gitignored) supplies them; in CI they come from GitHub 
 | `google_client_id` / `google_client_secret` / `facebook_*` | Keycloak SSO |
 | `stripe_secret_key` / `stripe_public_key` | payments |
 | `domain_api_key` | DigitalPlat bearer token for the nameserver push |
-| `allowlist_cidr` | IP(s) allowed at the Front Door / App Gateway WAF + the AKS API server; **/32 entries** (the WAF matches the forwarded client IP as a string), comma-separated for several people |
-| `root_domain` | apex domain served by the storefront |
-
-Azure uses Front Door managed TLS, so there is **no** `LETSENCRYPT_EMAIL` / `acme_staging`.
+| `allowlist_cidr` | CIDR(s) allowed at the App Gateway WAF + NSG + the AKS API server; comma-separated for several people |
+| `root_domain` / `letsencrypt_email` | apex domain and the cert-manager (Let's Encrypt) account email |
 
 The GitHub Actions secret list (with the `GITHUB_* -> GH_*` rename and the cloud-vs-dev
 OAuth guidance) is documented once in the top-level [README](../README.md#github-actions-secrets).

@@ -6,6 +6,11 @@ variable "resource_group_name" {
   type = string
 }
 
+variable "appgw_ip" {
+  description = "Application Gateway public IP the four hostnames resolve to."
+  type        = string
+}
+
 variable "domain_api_base_url" {
   type = string
 }

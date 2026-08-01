@@ -174,7 +174,7 @@ The tables below are the quick reference; the per-cloud docs above have the step
 |--------|-----------------|------------|
 | `GH_USERNAME` / `GH_TOKEN` / `GH_EMAIL` | `GITHUB_USERNAME` / `GITHUB_TOKEN` / `GITHUB_EMAIL` | ghcr.io image pull (**renamed**) |
 | `ROOT_DOMAIN` | `ROOT_DOMAIN` | apex domain served by the storefront, e.g. `example.dpdns.org` |
-| `LETSENCRYPT_EMAIL` | `LETSENCRYPT_EMAIL` | ACME account email for cert expiry notices (**GCP only** — AWS uses ACM, Azure uses Front Door managed certs) |
+| `LETSENCRYPT_EMAIL` | `LETSENCRYPT_EMAIL` | ACME account email for cert-manager (**GCP + Azure** — AWS uses ACM instead) |
 | `ALLOWLIST_CIDR` | `ALLOWLIST_CIDR` | IP(s) allowed at the ingress + control plane; **comma-separated** for several people, e.g. `1.2.3.4/32,5.6.7.8/32` |
 | `DOMAIN_API_KEY` | `DOMAIN_API_KEY` | registrar (DigitalPlat) token used to push nameserver delegation |
 | `STRIPE_SECRET_KEY` / `STRIPE_PUBLIC_KEY` | same | Stripe test-mode keys for payments |
@@ -235,7 +235,7 @@ Tear it down with `task destroy`.
 
 ## Deploying to a cloud
 
-The reference target is **GKE**. See **[gcp/README.md](gcp/README.md)** for the one-time prerequisites (project, APIs, state bucket, domain, deploy service-account key) and the exact secret list, then run the **Deploy(GCP)** workflow from the Actions tab. **AWS** ([aws/README.md](aws/README.md)) and **Azure** ([azure/README.md](azure/README.md)) follow the same shape but are **cloud-native**: AWS uses ALB + ACM + CloudFront/WAF, Azure uses AGIC + Application Gateway/WAF + Front Door. GCP remains ingress-nginx + cert-manager.
+The reference target is **GKE**. See **[gcp/README.md](gcp/README.md)** for the one-time prerequisites (project, APIs, state bucket, domain, deploy service-account key) and the exact secret list, then run the **Deploy(GCP)** workflow from the Actions tab. **AWS** ([aws/README.md](aws/README.md)) and **Azure** ([azure/README.md](azure/README.md)) follow the same shape but are **cloud-native**: AWS uses ALB + ACM + CloudFront/WAF, Azure uses AGIC + Application Gateway/WAF (TLS via cert-manager — Azure Front Door is unavailable on Free Trial). GCP remains ingress-nginx + cert-manager.
 
 After apply, Terraform pushes the nameserver delegation to your registrar and TLS is issued automatically — Let's Encrypt via cert-manager on GCP/Azure, ACM on AWS. Access is locked to `ALLOWLIST_CIDR` (the ingress/API server on GCP/Azure; the CloudFront WAF + EKS API on AWS).
 

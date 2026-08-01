@@ -1,11 +1,10 @@
 # VNet for the AKS cluster — the Azure counterpart to gcp/nw and aws/nw.
 #
 # Two subnets: one for the AKS nodes, and a dedicated one for the Application
-# Gateway (v2 requires its own subnet). The Application Gateway is fronted by
-# Azure Front Door, so its subnet NSG admits ONLY Front Door's edges
-# (AzureFrontDoor.Backend) on HTTP — direct client access is blocked, and the
-# per-user IP restriction is enforced by the App Gateway WAF on the forwarded
-# client IP. The GatewayManager rule is mandatory or App Gateway v2 will not
+# Gateway (v2 requires its own subnet). Clients reach the gateway directly (Azure
+# Front Door is forbidden on Free Trial), so the subnet NSG admits only the
+# allowlisted client IP(s) on HTTP/HTTPS, and the App Gateway WAF enforces the same
+# set at L7. The GatewayManager rule is mandatory or App Gateway v2 will not
 # provision.
 terraform {
   required_providers {
@@ -62,17 +61,18 @@ resource "azurerm_network_security_group" "appgw" {
     source_address_prefix      = "AzureLoadBalancer"
     destination_address_prefix = "*"
   }
-  # Client traffic: only from Front Door's edges, only HTTP (Front Door terminates
-  # TLS and reaches the gateway over HTTP, mirroring the AWS CloudFront->ALB hop).
+  # Client traffic: only from the allowlisted IP(s), on HTTP (redirected) and HTTPS.
+  # Clients reach the gateway directly (no Front Door on Free Trial), so this is the
+  # real client IP — the same set the App Gateway WAF enforces at L7.
   security_rule {
-    name                       = "AllowFrontDoorHTTP"
+    name                       = "AllowAllowlistWeb"
     priority                   = 120
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
     source_port_range          = "*"
-    destination_port_range     = "80"
-    source_address_prefix      = "AzureFrontDoor.Backend"
+    destination_port_ranges    = ["80", "443"]
+    source_address_prefixes    = [for c in split(",", var.allowlist_cidr) : trimspace(c)]
     destination_address_prefix = "*"
   }
   security_rule {

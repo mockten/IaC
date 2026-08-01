@@ -24,11 +24,10 @@ resource "azurerm_public_ip" "appgw" {
   domain_name_label = "${var.name_prefix}-appgw-${substr(md5(var.resource_group_name), 0, 8)}"
 }
 
-# WAF policy: keep the site private without Front Door Premium. Front Door Standard
-# has no WAF, so the per-user IP restriction lives here. The connection IP is Front
-# Door's, so the real client IP is read from X-Forwarded-For — and WAF's IPMatch
-# only works on RemoteAddr, so this is a string match on the forwarded value.
-# Works for /32 allowlist entries (individual IPs); CIDR ranges are not supported.
+# WAF policy: per-user IP restriction. Clients reach the gateway directly (there is
+# no Front Door on Free Trial), so the connection IP is the real client IP and
+# IPMatch on RemoteAddr works natively — CIDR ranges included. Block anything not in
+# the allowlist. The subnet NSG (../nw) also gates this at L3.
 resource "azurerm_web_application_firewall_policy" "appgw" {
   name                = "${var.name_prefix}-appgw-waf"
   location            = var.location
@@ -46,13 +45,11 @@ resource "azurerm_web_application_firewall_policy" "appgw" {
     action    = "Block"
     match_conditions {
       match_variables {
-        variable_name = "RequestHeaders"
-        selector      = "X-Forwarded-For"
+        variable_name = "RemoteAddr"
       }
-      operator           = "Contains"
+      operator           = "IPMatch"
       negation_condition = true
-      match_values       = [for c in split(",", var.allowlist_cidr) : trimspace(replace(c, "/32", ""))]
-      transforms         = ["Trim"]
+      match_values       = [for c in split(",", var.allowlist_cidr) : trimspace(c)]
     }
   }
 

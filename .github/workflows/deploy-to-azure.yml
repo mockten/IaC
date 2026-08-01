@@ -5,16 +5,22 @@ name: Azure 2.Deploy
 # see azure/README.md). `terraform apply` is idempotent: if a run fails partway,
 # just run it again — already-created resources are skipped and it continues.
 #
-# Azure is cloud-native here: AGIC + Application Gateway (WAF) + Azure Front Door
-# (Standard) with managed TLS — not ingress-nginx/cert-manager. So there is no
-# LETSENCRYPT_EMAIL / acme_staging.
+# Azure is cloud-native for ingress: AGIC + Application Gateway (WAF). Azure Front
+# Door is forbidden on Free Trial subscriptions, so there is no CDN and TLS is
+# issued by cert-manager (Let's Encrypt DNS-01) — hence LETSENCRYPT_EMAIL is needed.
 #
 # Required repository secrets: AZURE_CLIENT_ID / AZURE_CLIENT_SECRET /
 # AZURE_SUBSCRIPTION_ID / AZURE_TENANT_ID, plus the shared app set (GH_*, ROOT_DOMAIN,
-# ALLOWLIST_CIDR, DOMAIN_API_KEY, STRIPE_*, CLOUD_GOOGLE_*/GOOGLE_*, FACEBOOK_*).
+# LETSENCRYPT_EMAIL, ALLOWLIST_CIDR, DOMAIN_API_KEY, STRIPE_*, CLOUD_GOOGLE_*/GOOGLE_*,
+# FACEBOOK_*).
 
 on:
   workflow_dispatch:
+    inputs:
+      acme_staging:
+        description: "Issue TLS from Let's Encrypt STAGING (browsers warn, but the rate limit is effectively unmetered). Use while iterating."
+        type: boolean
+        default: false
 
 jobs:
   deploy:
@@ -37,6 +43,8 @@ jobs:
       TF_VAR_domain_api_key: ${{ secrets.DOMAIN_API_KEY }}
       TF_VAR_allowlist_cidr: ${{ secrets.ALLOWLIST_CIDR }}
       TF_VAR_root_domain: ${{ secrets.ROOT_DOMAIN }}
+      TF_VAR_letsencrypt_email: ${{ secrets.LETSENCRYPT_EMAIL }}
+      TF_VAR_acme_staging: ${{ inputs.acme_staging }}
 
     steps:
       - uses: actions/checkout@v4
@@ -77,10 +85,10 @@ jobs:
         working-directory: azure
         run: terraform apply -auto-approve
 
-      # Verify READY from the cluster, not by curling the public URLs: Front Door
-      # fronts the App Gateway whose WAF admits only ALLOWLIST_CIDR, and this runner
-      # is not on it. The runner IS authorized on the AKS API, so check the workloads
-      # + trained model with kubectl. Managed TLS + Front Door come up asynchronously.
+      # Verify READY from the cluster, not by curling the public URLs: the App
+      # Gateway WAF (and the subnet NSG) admit only ALLOWLIST_CIDR, and this runner is
+      # not on it. The runner IS authorized on the AKS API, so check the workloads +
+      # trained model with kubectl. cert-manager issues TLS asynchronously.
       - name: Verify environment is READY
         if: always()
         run: |
@@ -101,7 +109,7 @@ jobs:
             sleep 15
           done
           {
-            echo "### Deployed to AKS (cloud-native: AGIC + App Gateway/WAF + Front Door)"
+            echo "### Deployed to AKS (cloud-native: AGIC + App Gateway/WAF, cert-manager TLS)"
             echo "- Recommendation model: ${TRAINED:-unknown}"
             echo '```'
             kubectl -n default get pods 2>&1 | tail -40

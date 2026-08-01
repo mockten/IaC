@@ -44,6 +44,7 @@ module "nw" {
   name_prefix         = "mockten"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
+  allowlist_cidr      = var.allowlist_cidr
 }
 
 # Application Gateway must exist before the cluster's AGIC add-on can reference it.
@@ -84,25 +85,26 @@ module "dns" {
   source                = "./dns"
   root_domain           = var.root_domain
   resource_group_name   = azurerm_resource_group.main.name
+  appgw_ip              = module.appgw.public_ip
   domain_api_base_url   = var.domain_api_base_url
   domain_api_key        = var.domain_api_key
   domain_api_user_agent = var.domain_api_user_agent
   enable_ns_push        = var.enable_ns_push
 }
 
-# Front Door (Standard): edge cache + managed TLS, and it owns the four DNS records
-# (they alias Front Door, not the gateway). Origin is the App Gateway's public FQDN.
-module "cdn" {
-  source              = "./cdn"
-  name_prefix         = "mockten"
+# TLS for the AGIC/App Gateway ingress: cert-manager issues Let's Encrypt certs via
+# a DNS-01 solver against the zone (Front Door's managed certs are unavailable on
+# Free Trial). AGIC serves the issued secrets on the gateway's HTTPS listener.
+module "platform" {
+  source              = "./platform"
   resource_group_name = azurerm_resource_group.main.name
   dns_zone_id         = module.dns.zone_id
   dns_zone_name       = module.dns.zone_name
-  appgw_fqdn          = module.appgw.fqdn
-  host_store          = local.host_store
-  host_sales          = local.host_sales
-  host_admin          = local.host_admin
-  host_dashboard      = local.host_dashboard
+  kubelet_object_id   = module.aks.kubelet_object_id
+  kubelet_client_id   = module.aks.kubelet_client_id
+  subscription_id     = data.azurerm_client_config.current.subscription_id
+  letsencrypt_email   = var.letsencrypt_email
+  acme_staging        = var.acme_staging
 }
 
 # The portable workloads — the same module GKE/EKS deploy.
@@ -156,5 +158,5 @@ module "routing" {
   host_admin     = local.host_admin
   host_dashboard = local.host_dashboard
 
-  depends_on = [module.common_k8s, azurerm_role_assignment.agic_appgw]
+  depends_on = [module.common_k8s, module.platform, azurerm_role_assignment.agic_appgw]
 }

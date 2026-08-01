@@ -12,9 +12,22 @@ resource "azurerm_dns_zone" "zone" {
   resource_group_name = var.resource_group_name
 }
 
-# The host records (CNAME/alias to Front Door) and the managed-cert validation TXT
-# live in ../cdn — they alias Front Door, not the gateway, and need Front Door's
-# endpoint + validation tokens. This module keeps only the zone and the delegation.
+# The four hostnames point straight at the Application Gateway's public IP (there is
+# no Front Door on Free Trial). cert-manager writes _acme-challenge TXT records into
+# this zone itself, via its DNS Zone Contributor role.
+resource "azurerm_dns_a_record" "hosts" {
+  for_each = {
+    "@"         = var.appgw_ip
+    "sales"     = var.appgw_ip
+    "admin"     = var.appgw_ip
+    "dashboard" = var.appgw_ip
+  }
+  name                = each.key
+  zone_name           = azurerm_dns_zone.zone.name
+  resource_group_name = var.resource_group_name
+  ttl                 = 300
+  records             = [each.value]
+}
 
 # Same registrar push as the other clouds. Two hard-won details carried over: the
 # WAF rejects non-browser User-Agents (and the rejection looks like an auth

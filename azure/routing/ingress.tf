@@ -1,6 +1,8 @@
 locals {
   agic_annotations = {
-    "kubernetes.io/ingress.class" = "azure/application-gateway"
+    "kubernetes.io/ingress.class"              = "azure/application-gateway"
+    "cert-manager.io/cluster-issuer"           = "letsencrypt"
+    "appgw.ingress.kubernetes.io/ssl-redirect" = "true"
   }
 
   ecfront_paths = [
@@ -29,6 +31,10 @@ resource "kubernetes_ingress_v1" "ecfront" {
   }
 
   spec {
+    tls {
+      hosts       = [each.value]
+      secret_name = "${each.key}-tls"
+    }
     rule {
       host = each.value
       http {
@@ -58,6 +64,10 @@ resource "kubernetes_ingress_v1" "dashboard" {
   }
 
   spec {
+    tls {
+      hosts       = [var.host_dashboard]
+      secret_name = "dashboard-tls"
+    }
     rule {
       host = var.host_dashboard
       http {
