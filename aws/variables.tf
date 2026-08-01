@@ -38,11 +38,6 @@ variable "root_domain" {
   type        = string
 }
 
-variable "letsencrypt_email" {
-  description = "ACME account email for Let's Encrypt expiry notices."
-  type        = string
-}
-
 variable "domain_api_base_url" {
   description = "DigitalPlat domain API base. Nameserver push targets {base}/domains/{domain}/nameservers."
   type        = string
@@ -65,12 +60,6 @@ variable "enable_ns_push" {
   description = "Push the Route53 nameservers to the registrar automatically."
   type        = bool
   default     = true
-}
-
-variable "acme_staging" {
-  description = "Issue from Let's Encrypt staging. Production allows only 5 certificates per identifier set per 168h, and a stack that rebuilds whole burns that fast."
-  type        = bool
-  default     = false
 }
 
 # ── Platform knobs passed into common/k8s ────────────────────────────────────
@@ -120,19 +109,4 @@ variable "stripe_secret_key" {
 variable "stripe_public_key" {
   type    = string
   default = ""
-}
-
-# ── Derived hostnames (identical split to gcp) ───────────────────────────────
-locals {
-  host_store     = var.root_domain
-  host_sales     = "sales.${var.root_domain}"
-  host_admin     = "admin.${var.root_domain}"
-  host_dashboard = "dashboard.${var.root_domain}"
-
-  public_origins = [
-    "https://${local.host_store}",
-    "https://${local.host_sales}",
-    "https://${local.host_admin}",
-    "https://${local.host_dashboard}",
-  ]
 }

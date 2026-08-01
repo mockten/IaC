@@ -1,8 +1,12 @@
 name: AWS 3.Destroy
 
-# DRAFT — mirrors Destroy(GCP). Tears the whole AWS environment down. Separate from
-# Deploy(AWS) on purpose, and demands the state-bucket name be typed in, so a destroy
-# is never one mis-click from an apply.
+# Tears the whole AWS environment down, to GCP/Azure 3.Destroy parity. Manual only,
+# and demands the AWS account id be typed in, so a destroy is never one mis-click
+# from an apply. Works from ANY state — including a half-destroyed one — and cleans
+# up billing resources Terraform does not track (the ALB, target groups and
+# security groups the Load Balancer Controller creates out-of-band, plus orphaned
+# EBS volumes), so nothing keeps costing after it runs. The S3 tfstate bucket and
+# the DynamoDB lock table are intentionally preserved.
 #
 # Required repository secrets: the same set Deploy(AWS) uses.
 
@@ -10,11 +14,11 @@ on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: "Type the AWS state bucket name to confirm destruction"
+        description: "Type the AWS account id to confirm destruction"
         required: true
         type: string
       keep_dns_zone:
-        description: "Keep the Route 53 / DNS zone (avoids re-delegating nameservers on the next apply)"
+        description: "Keep the Route53 zone + nameserver delegation (avoids re-delegating at the registrar on the next apply)"
         type: boolean
         default: false
 
@@ -35,16 +39,8 @@ jobs:
       TF_VAR_domain_api_key: ${{ secrets.DOMAIN_API_KEY }}
       TF_VAR_allowlist_cidr: ${{ secrets.ALLOWLIST_CIDR }}
       TF_VAR_root_domain: ${{ secrets.ROOT_DOMAIN }}
-      TF_VAR_letsencrypt_email: ${{ secrets.LETSENCRYPT_EMAIL }}
 
     steps:
-      - name: Guard — confirm input matches the state bucket
-        run: |
-          if [ "${{ inputs.confirm }}" != "${{ secrets.AWS_TFSTATE_BUCKET }}" ]; then
-            echo "confirm input does not match AWS_TFSTATE_BUCKET; aborting." >&2
-            exit 1
-          fi
-
       - uses: actions/checkout@v4
 
       - uses: aws-actions/configure-aws-credentials@v4
@@ -52,6 +48,14 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Check the typed confirmation
+        run: |
+          ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
+          if [ "${{ inputs.confirm }}" != "${ACCOUNT}" ]; then
+            echo "::error::Confirmation does not match the AWS account id. Nothing was destroyed."
+            exit 1
+          fi
 
       - uses: hashicorp/setup-terraform@v3
         with:
@@ -61,6 +65,77 @@ jobs:
         working-directory: aws
         run: terraform init -backend-config="bucket=${{ secrets.AWS_TFSTATE_BUCKET }}"
 
+      # Make destroy work from ANY state, including a half-destroyed one.
+      #   1. Cluster still up  -> authorize this runner LIVE on the EKS API server
+      #      (setting the TF var alone is not enough on destroy).
+      #   2. Cluster already gone but its k8s objects still sit in state -> those died
+      #      with the cluster, so drop them from state; otherwise Terraform tries to
+      #      refresh them against an API endpoint that no longer exists and times out.
+      - name: Authorize this runner, or drop orphaned Kubernetes state
+        working-directory: aws
+        run: |
+          RUNNER_IP="$(curl -s https://api.ipify.org)/32"
+          echo "TF_VAR_master_authorized_extra=[\"${RUNNER_IP}\"]" >> "$GITHUB_ENV"
+          CLUSTER="$(aws eks list-clusters --query 'clusters[0]' --output text 2>/dev/null)"
+          if [ "${CLUSTER}" != "None" ] && [ -n "${CLUSTER}" ]; then
+            NETS="$(echo "${TF_VAR_allowlist_cidr},${RUNNER_IP}" | tr -d '[:space:]')"
+            echo "Cluster ${CLUSTER} is up — authorizing this runner on the API server."
+            aws eks update-cluster-config --name "${CLUSTER}" \
+              --resources-vpc-config "endpointPublicAccess=true,publicAccessCidrs=${NETS}" || true
+            for _ in $(seq 1 30); do
+              S="$(aws eks describe-cluster --name "${CLUSTER}" --query 'cluster.status' --output text)"
+              [ "${S}" = "ACTIVE" ] && break
+              sleep 20
+            done
+          else
+            echo "No cluster found — removing orphaned Kubernetes/Helm resources from state."
+            terraform state list 2>/dev/null \
+              | grep -E 'helm_release\.|kubernetes_|kubectl_manifest\.' \
+              | while read -r addr; do echo "  state rm ${addr}"; terraform state rm "${addr}" || true; done
+          fi
+
       - name: Terraform destroy
         working-directory: aws
-        run: terraform destroy -auto-approve -input=false
+        run: |
+          if [ "${{ inputs.keep_dns_zone }}" = "true" ]; then
+            # Everything except module.dns (the zone, its records and the NS
+            # delegation). Keeping the zone avoids re-delegating nameservers at the
+            # registrar (and the propagation wait) on the next apply.
+            terraform destroy -auto-approve \
+              -target=module.cdn \
+              -target=module.routing \
+              -target=module.common_k8s \
+              -target=module.platform \
+              -target=kubernetes_storage_class.gp3 \
+              -target=module.eks \
+              -target=module.nw
+          else
+            terraform destroy -auto-approve
+          fi
+
+      # Belt-and-suspenders billing cleanup. The Load Balancer Controller creates the
+      # ALB, its target groups and a security group OUTSIDE Terraform (they normally
+      # cascade when the Ingresses are deleted); a partial destroy can orphan them,
+      # and they keep billing. Same for CSI-provisioned EBS volumes. Everything is
+      # matched by the cluster tag / CSI tag; the S3 tfstate bucket and DynamoDB lock
+      # table are S3/DynamoDB, never matched here, so they are preserved.
+      - name: Delete orphaned load balancers, target groups, SGs and EBS volumes
+        if: always()
+        run: |
+          CLUSTER_TAG="mockten-eks"
+          for ARN in $(aws elbv2 describe-load-balancers --query 'LoadBalancers[].LoadBalancerArn' --output text); do
+            V="$(aws elbv2 describe-tags --resource-arns "${ARN}" --query "TagDescriptions[0].Tags[?Key=='elbv2.k8s.aws/cluster'].Value" --output text)"
+            if [ "${V}" = "${CLUSTER_TAG}" ]; then echo "Deleting orphaned ALB ${ARN}"; aws elbv2 delete-load-balancer --load-balancer-arn "${ARN}" || true; fi
+          done
+          sleep 30
+          for ARN in $(aws elbv2 describe-target-groups --query 'TargetGroups[].TargetGroupArn' --output text); do
+            V="$(aws elbv2 describe-tags --resource-arns "${ARN}" --query "TagDescriptions[0].Tags[?Key=='elbv2.k8s.aws/cluster'].Value" --output text)"
+            if [ "${V}" = "${CLUSTER_TAG}" ]; then echo "Deleting orphaned target group ${ARN}"; aws elbv2 delete-target-group --target-group-arn "${ARN}" || true; fi
+          done
+          aws ec2 describe-volumes \
+            --filters Name=status,Values=available Name=tag-key,Values=kubernetes.io/created-for/pvc/name \
+            --query 'Volumes[].VolumeId' --output text | tr '\t' '\n' \
+            | while read -r VOL; do [ -n "${VOL}" ] && { echo "Deleting orphaned EBS volume ${VOL}"; aws ec2 delete-volume --volume-id "${VOL}" || true; }; done
+          for SG in $(aws ec2 describe-security-groups --filters "Name=tag:elbv2.k8s.aws/cluster,Values=${CLUSTER_TAG}" --query 'SecurityGroups[].GroupId' --output text); do
+            echo "Deleting orphaned LBC security group ${SG}"; aws ec2 delete-security-group --group-id "${SG}" || true
+          done

@@ -2,9 +2,14 @@ output "cluster_name" {
   value = module.eks.cluster_name
 }
 
-output "ingress_hostname" {
-  description = "The NLB hostname all four A records alias to."
-  value       = module.platform.ingress_hostname
+output "alb_hostname" {
+  description = "The shared ALB hostname (CloudFront's origin; not user-facing)."
+  value       = module.routing.alb_dns_name
+}
+
+output "cdn_domain" {
+  description = "The CloudFront domain the four hostnames alias to."
+  value       = module.cdn.distribution_domain_name
 }
 
 output "name_servers" {

@@ -1,4 +1,5 @@
-# VPC with public and private subnets across two AZs.
+# VPC with public and private subnets across two AZs — the counterpart to
+# gcp/nw and azure/nw.
 #
 # EKS requires at least two AZs for the control plane. Nodes sit in the private
 # subnets and reach the internet (ghcr pulls, Let's Encrypt, the registrar API)
@@ -9,11 +10,13 @@
 # untagged subnet produces a LoadBalancer Service that never gets an address
 # with no useful error.
 
-variable "region" { type = string }
-variable "cluster_name" { type = string }
-variable "vpc_cidr" {
-  type    = string
-  default = "10.30.0.0/16"
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.60"
+    }
+  }
 }
 
 data "aws_availability_zones" "available" {
@@ -105,7 +108,3 @@ resource "aws_route_table_association" "private" {
   subnet_id      = aws_subnet.private[count.index].id
   route_table_id = aws_route_table.private.id
 }
-
-output "vpc_id" { value = aws_vpc.main.id }
-output "public_subnet_ids" { value = aws_subnet.public[*].id }
-output "private_subnet_ids" { value = aws_subnet.private[*].id }

@@ -1,0 +1,10 @@
+variable "region" { type = string }
+variable "cluster_name" { type = string }
+variable "vpc_id" { type = string }
+variable "route53_zone_id" { type = string }
+variable "oidc_provider_arn" { type = string }
+variable "oidc_provider_url" { type = string }
+variable "host_store" { type = string }
+variable "host_sales" { type = string }
+variable "host_admin" { type = string }
+variable "host_dashboard" { type = string }

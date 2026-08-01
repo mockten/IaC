@@ -1,48 +1,31 @@
-# Route53 hosted zone + the four A records, and the nameserver push to the
-# registrar. Same design as gcp/dns.
+# Route53 hosted zone + the nameserver push to the registrar. Same design as
+# gcp/dns and azure/dns.
+#
+# The A/ALIAS records that point the four hostnames at the load balancer live in
+# platform/records.tf, NOT here. That split is deliberate: cert-manager (in
+# platform) needs this zone's id, and the records need the load balancer's
+# hostname (also from platform). Keeping the records here as well would make dns
+# and platform reference each other — a module cycle Terraform rejects. The zone
+# has no dependency on platform, so it stays; the records follow the hostname.
 
-variable "root_domain" { type = string }
-variable "ingress_hostname" {
-  description = "The NLB's DNS name. AWS load balancers get a hostname, not a static IP, so these are ALIAS/CNAME records rather than the A records used on GCP."
-  type        = string
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.60"
+    }
+    # PATCHes the registrar's nameservers over its REST API (no official provider).
+    terracurl = {
+      source  = "devops-rob/terracurl"
+      version = "~> 1.2"
+    }
+  }
 }
-variable "ingress_zone_id" { type = string }
-variable "domain_api_base_url" { type = string }
-variable "domain_api_key" {
-  type      = string
-  sensitive = true
-}
-variable "domain_api_user_agent" { type = string }
-variable "enable_ns_push" { type = bool }
 
 resource "aws_route53_zone" "zone" {
   name          = var.root_domain
   comment       = "mockten — managed by terraform"
   force_destroy = true # a zone with records left in it otherwise blocks destroy
-}
-
-locals {
-  hosts = {
-    apex      = var.root_domain
-    sales     = "sales.${var.root_domain}"
-    admin     = "admin.${var.root_domain}"
-    dashboard = "dashboard.${var.root_domain}"
-  }
-}
-
-# ALIAS records, not CNAME: the apex cannot be a CNAME, and ALIAS costs nothing
-# to resolve. All four point at the same NLB; nginx routes by Host header.
-resource "aws_route53_record" "a" {
-  for_each = local.hosts
-  zone_id  = aws_route53_zone.zone.zone_id
-  name     = each.value
-  type     = "A"
-
-  alias {
-    name                   = var.ingress_hostname
-    zone_id                = var.ingress_zone_id
-    evaluate_target_health = false
-  }
 }
 
 # The registrar exposes a REST API but no Terraform provider, so this is a raw
@@ -79,6 +62,3 @@ resource "terracurl_request" "ns_delegation" {
     replace_triggered_by = [aws_route53_zone.zone]
   }
 }
-
-output "zone_id" { value = aws_route53_zone.zone.zone_id }
-output "name_servers" { value = aws_route53_zone.zone.name_servers }

@@ -1,65 +1,66 @@
-# ingress-nginx + cert-manager, the counterpart to gcp/platform.
-# Kept deliberately parallel: only the load balancer annotations and the DNS-01
-# solver differ between clouds.
+# Cloud-native AWS ingress: the AWS Load Balancer Controller + a single ALB
+# (shared across the four host Ingresses via an IngressGroup), with TLS from ACM.
+# This is the AWS-idiomatic counterpart to gcp/azure's ingress-nginx + cert-manager
+# — chosen for AWS on purpose, so it does NOT mirror those clouds here.
+#
+# The Ingress objects live in ingress.tf; the Route53 alias records in records.tf.
 
 terraform {
   required_providers {
-    kubectl = {
-      source  = "gavinbunney/kubectl"
-      version = "~> 1.19"
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.60"
+    }
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 2.17"
+    }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.35"
+    }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.12"
     }
   }
 }
 
-variable "region" { type = string }
-variable "allowlist_cidr" { type = string }
-variable "letsencrypt_email" { type = string }
-variable "acme_staging" { type = bool }
-variable "route53_zone_id" { type = string }
-variable "oidc_provider_arn" { type = string }
-variable "oidc_provider_url" { type = string }
-variable "host_store" { type = string }
-variable "host_sales" { type = string }
-variable "host_admin" { type = string }
-variable "host_dashboard" { type = string }
+# ── ACM certificate for the four hostnames (DNS-validated in our Route53 zone) ─
+# CloudFront (aws/cdn) would need a us-east-1 cert; the ALB uses one in-region.
+resource "aws_acm_certificate" "ingress" {
+  domain_name               = var.host_store
+  subject_alternative_names = [var.host_sales, var.host_admin, var.host_dashboard]
+  validation_method         = "DNS"
 
-# ── ingress-nginx behind a Network Load Balancer ─────────────────────────────
-# NLB rather than the default Classic LB: it preserves the client IP, which is
-# what makes loadBalancerSourceRanges a real network-level restriction instead
-# of an application-level 403.
-resource "helm_release" "ingress_nginx" {
-  name             = "ingress-nginx"
-  repository       = "https://kubernetes.github.io/ingress-nginx"
-  chart            = "ingress-nginx"
-  version          = "4.11.3"
-  namespace        = "ingress-nginx"
-  create_namespace = true
-
-  values = [yamlencode({
-    controller = {
-      service = {
-        annotations = {
-          "service.beta.kubernetes.io/aws-load-balancer-type"            = "nlb"
-          "service.beta.kubernetes.io/aws-load-balancer-scheme"          = "internet-facing"
-          "service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled" = "true"
-        }
-        loadBalancerSourceRanges = [for c in split(",", var.allowlist_cidr) : trimspace(c)]
-        externalTrafficPolicy    = "Local"
-      }
-    }
-  })]
-}
-
-data "kubernetes_service" "ingress_nginx" {
-  metadata {
-    name      = "ingress-nginx-controller"
-    namespace = "ingress-nginx"
+  lifecycle {
+    create_before_destroy = true
   }
-  depends_on = [helm_release.ingress_nginx]
 }
 
-# ── cert-manager, with IRSA so the DNS-01 solver can write to Route53 ────────
-data "aws_iam_policy_document" "certmgr_assume" {
+resource "aws_route53_record" "cert_validation" {
+  for_each = {
+    for dvo in aws_acm_certificate.ingress.domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      type   = dvo.resource_record_type
+      record = dvo.resource_record_value
+    }
+  }
+  zone_id         = var.route53_zone_id
+  name            = each.value.name
+  type            = each.value.type
+  records         = [each.value.record]
+  ttl             = 60
+  allow_overwrite = true
+}
+
+resource "aws_acm_certificate_validation" "ingress" {
+  certificate_arn         = aws_acm_certificate.ingress.arn
+  validation_record_fqdns = [for r in aws_route53_record.cert_validation : r.fqdn]
+}
+
+# ── AWS Load Balancer Controller (IRSA) ──────────────────────────────────────
+data "aws_iam_policy_document" "lbc_assume" {
   statement {
     effect  = "Allow"
     actions = ["sts:AssumeRoleWithWebIdentity"]
@@ -70,104 +71,51 @@ data "aws_iam_policy_document" "certmgr_assume" {
     condition {
       test     = "StringEquals"
       variable = "${var.oidc_provider_url}:sub"
-      values   = ["system:serviceaccount:cert-manager:cert-manager"]
+      values   = ["system:serviceaccount:kube-system:aws-load-balancer-controller"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "${var.oidc_provider_url}:aud"
+      values   = ["sts.amazonaws.com"]
     }
   }
 }
 
-resource "aws_iam_role" "certmgr" {
-  name               = "mockten-cert-manager-dns01"
-  assume_role_policy = data.aws_iam_policy_document.certmgr_assume.json
+resource "aws_iam_role" "lbc" {
+  name               = "mockten-alb-controller"
+  assume_role_policy = data.aws_iam_policy_document.lbc_assume.json
 }
 
-# Narrowest set that still lets ACME write and clean up _acme-challenge TXT.
-resource "aws_iam_role_policy" "certmgr" {
-  name = "route53-dns01"
-  role = aws_iam_role.certmgr.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = ["route53:GetChange"]
-        Resource = "arn:aws:route53:::change/*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["route53:ChangeResourceRecordSets", "route53:ListResourceRecordSets"]
-        Resource = "arn:aws:route53:::hostedzone/${var.route53_zone_id}"
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["route53:ListHostedZonesByName"]
-        Resource = "*"
-      },
-    ]
-  })
+resource "aws_iam_policy" "lbc" {
+  name   = "mockten-alb-controller"
+  policy = file("${path.module}/iam_alb_controller_policy.json")
 }
 
-resource "helm_release" "cert_manager" {
-  name             = "cert-manager"
-  repository       = "https://charts.jetstack.io"
-  chart            = "cert-manager"
-  version          = "v1.16.2"
-  namespace        = "cert-manager"
-  create_namespace = true
+resource "aws_iam_role_policy_attachment" "lbc" {
+  role       = aws_iam_role.lbc.name
+  policy_arn = aws_iam_policy.lbc.arn
+}
+
+resource "helm_release" "alb_controller" {
+  name             = "aws-load-balancer-controller"
+  repository       = "https://aws.github.io/eks-charts"
+  chart            = "aws-load-balancer-controller"
+  version          = "1.8.1"
+  namespace        = "kube-system"
+  create_namespace = false
 
   values = [yamlencode({
-    crds = { enabled = true }
+    clusterName = var.cluster_name
+    region      = var.region
+    vpcId       = var.vpc_id
     serviceAccount = {
+      create = true
+      name   = "aws-load-balancer-controller"
       annotations = {
-        "eks.amazonaws.com/role-arn" = aws_iam_role.certmgr.arn
+        "eks.amazonaws.com/role-arn" = aws_iam_role.lbc.arn
       }
     }
-    # By default cert-manager self-checks DNS-01 against the domain's
-    # authoritative nameservers. For a delegated subdomain the parent's servers
-    # can answer SERVFAIL or time out from inside the cluster, so the challenge
-    # never completes even though the TXT record is published correctly. This
-    # cost hours on GCP; check via public resolvers instead.
-    extraArgs = [
-      "--dns01-recursive-nameservers=8.8.8.8:53,1.1.1.1:53",
-      "--dns01-recursive-nameservers-only",
-    ]
   })]
-}
 
-resource "kubectl_manifest" "cluster_issuer" {
-  depends_on = [helm_release.cert_manager]
-  yaml_body = yamlencode({
-    apiVersion = "cert-manager.io/v1"
-    kind       = "ClusterIssuer"
-    metadata   = { name = "letsencrypt" }
-    spec = {
-      acme = {
-        # Production allows 5 certificates per exact identifier set per 168h.
-        # A stack that rebuilds whole exhausts that in five rebuilds, and every
-        # Order then fails with 429 — which looks like a DNS fault but is not.
-        server = var.acme_staging ? (
-          "https://acme-staging-v02.api.letsencrypt.org/directory"
-          ) : (
-          "https://acme-v02.api.letsencrypt.org/directory"
-        )
-        email = var.letsencrypt_email
-        # An account registered against staging is invalid against production,
-        # so the key must differ per environment.
-        privateKeySecretRef = {
-          name = var.acme_staging ? "letsencrypt-account-key-staging" : "letsencrypt-account-key"
-        }
-        solvers = [{
-          dns01 = {
-            route53 = {
-              region       = var.region
-              hostedZoneID = var.route53_zone_id
-            }
-          }
-        }]
-      }
-    }
-  })
-}
-
-output "ingress_hostname" {
-  value = data.kubernetes_service.ingress_nginx.status[0].load_balancer[0].ingress[0].hostname
+  depends_on = [aws_iam_role_policy_attachment.lbc]
 }

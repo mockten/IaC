@@ -135,7 +135,7 @@ Terraform roots, one per target — all consuming the same `common/k8s` module:
 |------|--------|-------|
 | [`local`](local) | local Kubernetes (docker-desktop) | local state |
 | [`gcp`](gcp) | GKE — **the reference implementation** ([gcp/README.md](gcp/README.md)) | GCS backend |
-| [`aws`](aws) | EKS — **draft, never applied** | S3 backend |
+| [`aws`](aws) | EKS — **cloud-native (ALB / ACM / CloudFront)** ([aws/README.md](aws/README.md)) | S3 backend |
 | [`azure`](azure) | AKS ([azure/README.md](azure/README.md)) | Azure Storage backend |
 
 **Configuration comes only from `TF_VAR_*` environment variables — never a committed `tfvars`.** Locally they are exported from the gitignored `.env` (copy [`.env.example`](.env.example)); in CI they come from GitHub secrets. The variable names are identical everywhere, so the same `terraform apply` runs in both. See [gcp/README.md](gcp/README.md#github-actions-secrets) for the full secret list and the `.env` → GitHub-secret name mapping.
@@ -163,7 +163,7 @@ CI reads everything from repository secrets (**Settings → Secrets and variable
 | Cloud | Setup doc |
 |-------|-----------|
 | **GCP** | [**gcp/README.md**](gcp/README.md#github-actions-secrets) — one-time prerequisites and the exact GCP secret list, including how to create the `GCP_SA_KEY` service-account key |
-| **AWS** (draft) | secret list in the header of [.github/workflows/dry-run-aws.yml](.github/workflows/dry-run-aws.yml) |
+| **AWS** | [**aws/README.md**](aws/README.md#github-actions-secrets) — one-time prerequisites (S3 state bucket, DynamoDB lock, deploy IAM user) and the `AWS_*` secrets |
 | **Azure** | [**azure/README.md**](azure/README.md) — one-time prerequisites (service principal, tfstate storage, provider registration) and the `AZURE_*` secrets |
 
 The tables below are the quick reference; the per-cloud docs above have the step-by-step.
@@ -174,7 +174,7 @@ The tables below are the quick reference; the per-cloud docs above have the step
 |--------|-----------------|------------|
 | `GH_USERNAME` / `GH_TOKEN` / `GH_EMAIL` | `GITHUB_USERNAME` / `GITHUB_TOKEN` / `GITHUB_EMAIL` | ghcr.io image pull (**renamed**) |
 | `ROOT_DOMAIN` | `ROOT_DOMAIN` | apex domain served by the storefront, e.g. `example.dpdns.org` |
-| `LETSENCRYPT_EMAIL` | `LETSENCRYPT_EMAIL` | ACME account email for cert expiry notices |
+| `LETSENCRYPT_EMAIL` | `LETSENCRYPT_EMAIL` | ACME account email for cert expiry notices (**GCP / Azure only** — AWS issues TLS from ACM) |
 | `ALLOWLIST_CIDR` | `ALLOWLIST_CIDR` | IP(s) allowed at the ingress + control plane; **comma-separated** for several people, e.g. `1.2.3.4/32,5.6.7.8/32` |
 | `DOMAIN_API_KEY` | `DOMAIN_API_KEY` | registrar (DigitalPlat) token used to push nameserver delegation |
 | `STRIPE_SECRET_KEY` / `STRIPE_PUBLIC_KEY` | same | Stripe test-mode keys for payments |
@@ -188,13 +188,17 @@ The tables below are the quick reference; the per-cloud docs above have the step
 | `GCP_SA_KEY` | full JSON key of the deploy service account (see [gcp/README.md](gcp/README.md#github-actions-secrets), Prerequisites step 5) |
 | `GCP_PROJECT` | GCP project id (also names the `${project}-tfstate` bucket) |
 
-**AWS (draft) — `AWS 1/2/3`:**
+**AWS — `AWS 1/2/3`:**
 
 | Secret | What it is |
 |--------|------------|
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | deploy IAM user (or switch the workflow to an OIDC role) |
-| `AWS_REGION` | e.g. `us-east-1` |
-| `AWS_TFSTATE_BUCKET` | S3 bucket holding Terraform state |
+| `AWS_REGION` | e.g. `ap-northeast-1` (must match the tfstate bucket's region) |
+| `AWS_TFSTATE_BUCKET` | S3 bucket holding Terraform state (`mockten-tfstate-<account-id>`) |
+
+AWS does **not** use `LETSENCRYPT_EMAIL` (it issues TLS from ACM), and it needs no
+`GCP_SA_KEY` / `AZURE_*`. See [aws/README.md](aws/README.md#github-actions-secrets) for the
+`gh secret set` commands and the one-time backend/IAM prerequisites.
 
 **Azure — `Azure 1/2/3`:**
 
@@ -231,9 +235,9 @@ Tear it down with `task destroy`.
 
 ## Deploying to a cloud
 
-The reference target is **GKE**. See **[gcp/README.md](gcp/README.md)** for the one-time prerequisites (project, APIs, state bucket, domain, deploy service-account key) and the exact secret list, then run the **Deploy(GCP)** workflow from the Actions tab. `AWS`/`Azure` follow the same shape (drafts).
+The reference target is **GKE**. See **[gcp/README.md](gcp/README.md)** for the one-time prerequisites (project, APIs, state bucket, domain, deploy service-account key) and the exact secret list, then run the **Deploy(GCP)** workflow from the Actions tab. **Azure** ([azure/README.md](azure/README.md)) and **AWS** ([aws/README.md](aws/README.md)) follow the same shape — Azure mirrors GCP (ingress-nginx + cert-manager), while AWS is cloud-native (ALB + ACM + CloudFront/WAF).
 
-After apply, Terraform pushes the nameserver delegation to your registrar and cert-manager issues Let's Encrypt certificates automatically; the ingress is locked to `ALLOWLIST_CIDR` (the one IP allowed to reach it).
+After apply, Terraform pushes the nameserver delegation to your registrar and TLS is issued automatically — Let's Encrypt via cert-manager on GCP/Azure, ACM on AWS. Access is locked to `ALLOWLIST_CIDR` (the ingress/API server on GCP/Azure; the CloudFront WAF + EKS API on AWS).
 
 ---
 

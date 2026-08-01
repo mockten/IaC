@@ -1,16 +1,16 @@
 name: AWS 1.DryRun
 
-# DRAFT — mirrors DryRun(GCP). The aws/ root is written but never applied, so this
-# is scaffolding: it will need an AWS account, an S3 state bucket + DynamoDB lock,
-# and the secrets below before it can pass. Manual (workflow_dispatch) so it never
-# fails on every push for clones without AWS configured.
+# Manual, like DryRun(GCP/Azure). Validates the aws/ root and produces a plan
+# without cluster connectivity. One-time prerequisites (S3 state bucket + DynamoDB
+# lock, deploy IAM user) are in aws/README.md.
 #
-# Required repository secrets (draft names):
-#   AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY  deploy IAM user (or use OIDC role)
-#   AWS_REGION                                 e.g. us-east-1
-#   AWS_TFSTATE_BUCKET                          S3 bucket holding terraform state
-#   plus the same app secrets as GCP (GH_*, ROOT_DOMAIN, LETSENCRYPT_EMAIL,
-#   ALLOWLIST_CIDR, DOMAIN_API_KEY, STRIPE_*, CLOUD_GOOGLE_*/GOOGLE_*, FACEBOOK_*)
+# Required repository secrets:
+#   AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY  deploy IAM user
+#   AWS_REGION                                 e.g. ap-northeast-1
+#   AWS_TFSTATE_BUCKET                         S3 bucket holding terraform state
+#   plus the shared app set (GH_*, ROOT_DOMAIN, ALLOWLIST_CIDR, DOMAIN_API_KEY,
+#   STRIPE_*, CLOUD_GOOGLE_*/GOOGLE_*, FACEBOOK_*). AWS uses ACM, so there is no
+#   LETSENCRYPT_EMAIL / acme_staging here. See README.md "GitHub Actions secrets".
 
 on:
   workflow_dispatch:
@@ -32,7 +32,6 @@ jobs:
       TF_VAR_domain_api_key: ${{ secrets.DOMAIN_API_KEY }}
       TF_VAR_allowlist_cidr: ${{ secrets.ALLOWLIST_CIDR }}
       TF_VAR_root_domain: ${{ secrets.ROOT_DOMAIN }}
-      TF_VAR_letsencrypt_email: ${{ secrets.LETSENCRYPT_EMAIL }}
 
     steps:
       - uses: actions/checkout@v4
@@ -55,7 +54,7 @@ jobs:
         working-directory: aws
         run: terraform validate
 
-      # -refresh=false: the EKS control plane is IP-restricted like GKE, so a CI
+      # -refresh=false: the EKS control plane is IP-restricted like GKE/AKS, so a CI
       # runner cannot reach the kubernetes/helm providers to refresh live state.
       # This catches config/plan errors without cluster connectivity.
       - name: Terraform plan
