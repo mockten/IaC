@@ -18,6 +18,11 @@ variable "subnet_id" {
   type = string
 }
 
+variable "appgw_id" {
+  description = "Application Gateway id the AGIC add-on programs (brownfield)."
+  type        = string
+}
+
 variable "allowlist_cidr" {
   type = string
 }

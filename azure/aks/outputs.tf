@@ -10,6 +10,11 @@ output "kubelet_client_id" {
   value = azurerm_kubernetes_cluster.this.kubelet_identity[0].client_id
 }
 
+output "agic_identity_object_id" {
+  description = "AGIC's managed identity — needs Contributor on the App Gateway and Reader on the RG."
+  value       = azurerm_kubernetes_cluster.this.ingress_application_gateway[0].ingress_application_gateway_identity[0].object_id
+}
+
 # kube_config fields, used to configure the kubernetes/helm/kubectl providers at
 # the root. Sensitive so they are not printed in plan output.
 output "kube_host" {

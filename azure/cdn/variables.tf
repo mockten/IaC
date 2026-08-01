@@ -1,0 +1,9 @@
+variable "name_prefix" { type = string }
+variable "resource_group_name" { type = string }
+variable "dns_zone_id" { type = string }
+variable "dns_zone_name" { type = string }
+variable "appgw_fqdn" { type = string }
+variable "host_store" { type = string }
+variable "host_sales" { type = string }
+variable "host_admin" { type = string }
+variable "host_dashboard" { type = string }

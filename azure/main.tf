@@ -1,6 +1,9 @@
-# Root wiring for mockten on AKS — the Azure counterpart to gcp/main.tf. Each
-# concern is a module (nw / aks / dns / platform), all consuming the same
-# common/k8s workloads module GKE deploys.
+# Root wiring for mockten on AKS — cloud-native, mirroring aws/. Unlike gcp/ (and
+# the old azure/ that used ingress-nginx + cert-manager), Azure here is
+# vendor-native: AGIC + Application Gateway (WAF) for ingress, Azure Front Door
+# (Standard) in front for edge caching and managed TLS. Module order matters:
+#   nw -> appgw -> aks(AGIC) -> AGIC role assignments -> common_k8s -> routing,
+# with dns + cdn (Front Door owns the DNS records) alongside.
 
 data "azurerm_client_config" "current" {}
 
@@ -43,6 +46,16 @@ module "nw" {
   resource_group_name = azurerm_resource_group.main.name
 }
 
+# Application Gateway must exist before the cluster's AGIC add-on can reference it.
+module "appgw" {
+  source              = "./appgw"
+  name_prefix         = "mockten"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  appgw_subnet_id     = module.nw.appgw_subnet_id
+  allowlist_cidr      = var.allowlist_cidr
+}
+
 module "aks" {
   source                  = "./aks"
   cluster_name            = var.az_cluster_name
@@ -50,51 +63,49 @@ module "aks" {
   resource_group_name     = azurerm_resource_group.main.name
   kubernetes_version      = var.az_kubernetes_version
   subnet_id               = module.nw.subnet_id
+  appgw_id                = module.appgw.id
   allowlist_cidr          = var.allowlist_cidr
   master_authorized_extra = var.master_authorized_extra
 }
 
-# Reserved up front so the DNS records and the LB agree at plan time. Must live in
-# the AKS-managed node resource group, or the LB cannot claim it.
-resource "azurerm_public_ip" "ingress" {
-  name                = "mockten-ingress-ip"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = module.aks.node_resource_group
-  allocation_method   = "Static"
-  sku                 = "Standard"
+# AGIC's managed identity needs to program the gateway and read the RG.
+resource "azurerm_role_assignment" "agic_appgw" {
+  scope                = module.appgw.id
+  role_definition_name = "Contributor"
+  principal_id         = module.aks.agic_identity_object_id
+}
+resource "azurerm_role_assignment" "agic_rg_reader" {
+  scope                = azurerm_resource_group.main.id
+  role_definition_name = "Reader"
+  principal_id         = module.aks.agic_identity_object_id
 }
 
 module "dns" {
   source                = "./dns"
   root_domain           = var.root_domain
   resource_group_name   = azurerm_resource_group.main.name
-  ingress_ip            = azurerm_public_ip.ingress.ip_address
   domain_api_base_url   = var.domain_api_base_url
   domain_api_key        = var.domain_api_key
   domain_api_user_agent = var.domain_api_user_agent
   enable_ns_push        = var.enable_ns_push
 }
 
-module "platform" {
-  source              = "./platform"
+# Front Door (Standard): edge cache + managed TLS, and it owns the four DNS records
+# (they alias Front Door, not the gateway). Origin is the App Gateway's public FQDN.
+module "cdn" {
+  source              = "./cdn"
+  name_prefix         = "mockten"
   resource_group_name = azurerm_resource_group.main.name
-  node_resource_group = module.aks.node_resource_group
-  kubelet_object_id   = module.aks.kubelet_object_id
-  kubelet_client_id   = module.aks.kubelet_client_id
-  ingress_ip          = azurerm_public_ip.ingress.ip_address
-  allowlist_cidr      = var.allowlist_cidr
   dns_zone_id         = module.dns.zone_id
   dns_zone_name       = module.dns.zone_name
-  subscription_id     = data.azurerm_client_config.current.subscription_id
-  letsencrypt_email   = var.letsencrypt_email
-  acme_staging        = var.acme_staging
+  appgw_fqdn          = module.appgw.fqdn
   host_store          = local.host_store
   host_sales          = local.host_sales
   host_admin          = local.host_admin
   host_dashboard      = local.host_dashboard
 }
 
-# The portable workloads — the same module GKE deploys.
+# The portable workloads — the same module GKE/EKS deploy.
 module "common_k8s" {
   source                 = "../common/k8s"
   github_username        = var.github_username
@@ -127,11 +138,23 @@ module "common_k8s" {
   e2e_admin_user     = "e2e-admin@${var.root_domain}"
   e2e_admin_password = random_password.e2e_admin.result
 
-  # Parity with GCP so the dashboard reads all-READY on first open: seed purchase
-  # data + train the model, and let the dashboard reach the ingress in-cluster for
-  # its readiness TLS check (avoids the external-LB hairpin that reads PENDING).
-  enable_seed_job     = true
-  internal_ingress_ip = module.platform.ingress_cluster_ip
+  # Seed purchase data + train the model so the dashboard reads all-READY. Like
+  # aws/, there is no internal_ingress_ip hostAlias: the App Gateway is external
+  # (no in-cluster ClusterIP), so the dashboard reaches its readiness endpoint the
+  # normal way.
+  enable_seed_job = true
 
   depends_on = [module.aks]
+}
+
+# The Ingresses AGIC programs onto the gateway. Last: the backend Services must
+# exist, and AGIC must already hold its role assignments.
+module "routing" {
+  source         = "./routing"
+  host_store     = local.host_store
+  host_sales     = local.host_sales
+  host_admin     = local.host_admin
+  host_dashboard = local.host_dashboard
+
+  depends_on = [module.common_k8s, azurerm_role_assignment.agic_appgw]
 }

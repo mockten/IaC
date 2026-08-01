@@ -35,9 +35,17 @@ resource "azurerm_kubernetes_cluster" "this" {
     authorized_ip_ranges = concat([for c in split(",", var.allowlist_cidr) : trimspace(c)], var.master_authorized_extra)
   }
 
-  # Workload Identity, so cert-manager can touch the DNS zone without a secret.
   oidc_issuer_enabled       = true
   workload_identity_enabled = true
+
+  # AGIC (Application Gateway Ingress Controller) as a managed add-on, brownfield:
+  # it programs the Terraform-owned Application Gateway (../appgw) from the cluster
+  # Ingresses. This is the Azure cloud-native ingress — the counterpart to the AWS
+  # Load Balancer Controller — replacing ingress-nginx. AGIC gets a managed
+  # identity here; the role assignments it needs are made at the root.
+  ingress_application_gateway {
+    gateway_id = var.appgw_id
+  }
 
   network_profile {
     network_plugin = "azure"

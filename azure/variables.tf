@@ -20,11 +20,6 @@ variable "root_domain" {
   type        = string
 }
 
-variable "letsencrypt_email" {
-  description = "ACME account email for Let's Encrypt expiry notices."
-  type        = string
-}
-
 variable "domain_api_base_url" {
   type    = string
   default = "https://domain-api.digitalplat.org/api/v1"
@@ -44,12 +39,6 @@ variable "domain_api_user_agent" {
 variable "enable_ns_push" {
   type    = bool
   default = true
-}
-
-variable "acme_staging" {
-  description = "Issue from Let's Encrypt staging while iterating. Production allows only 5 certificates per identifier set per 168h."
-  type        = bool
-  default     = false
 }
 
 variable "namespace_memory_quota" {

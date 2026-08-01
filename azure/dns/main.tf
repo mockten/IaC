@@ -12,19 +12,9 @@ resource "azurerm_dns_zone" "zone" {
   resource_group_name = var.resource_group_name
 }
 
-resource "azurerm_dns_a_record" "hosts" {
-  for_each = {
-    apex      = "@"
-    sales     = "sales"
-    admin     = "admin"
-    dashboard = "dashboard"
-  }
-  name                = each.value
-  zone_name           = azurerm_dns_zone.zone.name
-  resource_group_name = var.resource_group_name
-  ttl                 = 300
-  records             = [var.ingress_ip]
-}
+# The host records (CNAME/alias to Front Door) and the managed-cert validation TXT
+# live in ../cdn — they alias Front Door, not the gateway, and need Front Door's
+# endpoint + validation tokens. This module keeps only the zone and the delegation.
 
 # Same registrar push as the other clouds. Two hard-won details carried over: the
 # WAF rejects non-browser User-Agents (and the rejection looks like an auth

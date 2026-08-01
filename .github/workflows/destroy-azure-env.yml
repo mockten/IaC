@@ -39,7 +39,6 @@ jobs:
       TF_VAR_domain_api_key: ${{ secrets.DOMAIN_API_KEY }}
       TF_VAR_allowlist_cidr: ${{ secrets.ALLOWLIST_CIDR }}
       TF_VAR_root_domain: ${{ secrets.ROOT_DOMAIN }}
-      TF_VAR_letsencrypt_email: ${{ secrets.LETSENCRYPT_EMAIL }}
 
     steps:
       - name: Check the typed confirmation
@@ -68,7 +67,13 @@ jobs:
       #   2. Cluster already gone but its k8s objects still sit in state -> those died
       #      with the cluster, so drop them from state; otherwise Terraform tries to
       #      refresh them against an API endpoint that no longer exists and times out.
-      - name: Authorize this runner, or drop orphaned Kubernetes state
+      # Don't let Terraform manage the Kubernetes layer on teardown: a long destroy
+      # can outlive the AKS auth token, and the k8s objects die with the cluster
+      # anyway. Authorize the runner (so the token is valid for the state ops), then
+      # drop every k8s/Helm resource from state — Terraform then destroys only Azure
+      # infrastructure. Unlike AWS, AGIC leaves nothing orphaned in the VNet (the App
+      # Gateway is Terraform-owned and deleted directly).
+      - name: Authorize this runner and drop Kubernetes from state
         working-directory: azure
         run: |
           RUNNER_IP="$(curl -s https://api.ipify.org)/32"
@@ -80,35 +85,28 @@ jobs:
             echo "Cluster ${CLUSTER} is up — authorizing this runner on the API server."
             az aks update -g "${RG}" -n "${CLUSTER}" --api-server-authorized-ip-ranges "${NETS}" -o none
           else
-            echo "No cluster found — removing orphaned Kubernetes/Helm resources from state."
-            terraform state list 2>/dev/null \
-              | grep -E 'helm_release\.|kubernetes_|kubectl_manifest\.' \
-              | while read -r addr; do echo "  state rm ${addr}"; terraform state rm "${addr}" || true; done
+            echo "No cluster found."
           fi
-
-      - name: Terraform plan -destroy
-        working-directory: azure
-        run: terraform plan -destroy -no-color
+          echo "Dropping Kubernetes/Helm resources from state."
+          terraform state list 2>/dev/null \
+            | grep -E 'helm_release\.|kubernetes_|kubectl_manifest\.' \
+            | while read -r addr; do echo "  state rm ${addr}"; terraform state rm "${addr}" || true; done
 
       - name: Terraform destroy
         working-directory: azure
         run: |
           if [ "${{ inputs.keep_dns_zone }}" = "true" ]; then
-            # Everything except the DNS zone, its records, the NS delegation and the
-            # resource group that holds them. Keeping the zone avoids re-delegating
-            # nameservers at the registrar (and the propagation wait) on the next apply.
+            # Everything except module.dns (the zone, delegation). Keeping the zone
+            # avoids re-delegating nameservers at the registrar on the next apply.
             terraform destroy -auto-approve \
+              -target=module.cdn \
+              -target=module.routing \
               -target=module.common_k8s \
-              -target=kubernetes_ingress_v1.ecfront \
-              -target=kubernetes_ingress_v1.dashboard \
-              -target=kubectl_manifest.cluster_issuer \
-              -target=helm_release.cert_manager \
-              -target=helm_release.ingress_nginx \
-              -target=azurerm_role_assignment.certmgr_dns \
-              -target=azurerm_kubernetes_cluster.this \
-              -target=azurerm_public_ip.ingress \
-              -target=azurerm_subnet.nodes \
-              -target=azurerm_virtual_network.main
+              -target=azurerm_role_assignment.agic_appgw \
+              -target=azurerm_role_assignment.agic_rg_reader \
+              -target=module.aks \
+              -target=module.appgw \
+              -target=module.nw
           else
             terraform destroy -auto-approve
           fi
