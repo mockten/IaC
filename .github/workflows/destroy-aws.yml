@@ -160,7 +160,7 @@ jobs:
             # Non-default SGs left in the VPC are all LBC orphans by this point (the
             # cluster/node SGs went with the cluster). Retry: they can reference each
             # other, so a first pass may leave one that a later pass can then delete.
-            for _ in 1 2 3; do
+            for _ in 1 2 3 4 5; do
               SGS="$(aws ec2 describe-security-groups --filters Name=vpc-id,Values=${VPC} --query "SecurityGroups[?GroupName!='default'].GroupId" --output text)"
               [ -z "${SGS}" ] && break
               for SG in ${SGS}; do echo "Deleting leftover SG ${SG}"; aws ec2 delete-security-group --group-id "${SG}" 2>/dev/null || true; done
@@ -175,7 +175,13 @@ jobs:
             [ -n "${ALLOC}" ] && { echo "Releasing orphaned EIP ${ALLOC}"; aws ec2 release-address --allocation-id "${ALLOC}" || true; }
           done
 
+      # if: always() — the orphan sweep above runs even when pass 1 errored, and this
+      # pass MUST still run afterward or a pass-1 hiccup would leave the VPC + NAT
+      # billing. For a full wipe it is a plain destroy, so it also retries anything
+      # pass 1 did not finish; the k8s layer is already out of state, so it only ever
+      # touches AWS infrastructure.
       - name: Terraform destroy — the VPC (and everything remaining)
+        if: always()
         working-directory: aws
         run: |
           if [ "${{ inputs.keep_dns_zone }}" = "true" ]; then
