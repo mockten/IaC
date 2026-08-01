@@ -110,54 +110,63 @@ jobs:
             | grep -E 'helm_release\.|kubernetes_|kubectl_manifest\.' \
             | while read -r addr; do echo "  state rm ${addr}"; terraform state rm "${addr}" || true; done
 
-      - name: Terraform destroy
+      # Two-pass teardown. A plain `terraform destroy` cannot finish on EKS the way
+      # it does on GKE/AKS: there the cloud LB is a Service the cloud-controller
+      # deletes with the cluster, but on AWS the Load Balancer Controller leaves an
+      # ALB, target groups and a "k8s-traffic-*" security group in the VPC that
+      # Terraform never owned, and a leftover SG blocks DeleteVpc with
+      # "DependencyViolation". So destroy everything EXCEPT the VPC first, then sweep
+      # those orphans, then destroy the VPC — which is now unblocked. (common_k8s and
+      # the gp3 StorageClass were already dropped from state above, so they are not
+      # targeted here.)
+      - name: Terraform destroy — everything except the VPC
         working-directory: aws
         run: |
-          if [ "${{ inputs.keep_dns_zone }}" = "true" ]; then
-            # Everything except module.dns (the zone, its records and the NS
-            # delegation). Keeping the zone avoids re-delegating nameservers at the
-            # registrar (and the propagation wait) on the next apply.
-            terraform destroy -auto-approve \
-              -target=module.cdn \
-              -target=module.routing \
-              -target=module.common_k8s \
-              -target=module.platform \
-              -target=kubernetes_storage_class.gp3 \
-              -target=module.eks \
-              -target=module.nw
-          else
-            terraform destroy -auto-approve
-          fi
+          TARGETS="-target=module.cdn -target=module.routing -target=module.platform -target=module.eks"
+          [ "${{ inputs.keep_dns_zone }}" != "true" ] && TARGETS="${TARGETS} -target=module.dns"
+          terraform destroy -auto-approve ${TARGETS}
 
-      # Belt-and-suspenders billing cleanup. The Load Balancer Controller creates the
-      # ALB, its target groups and a security group OUTSIDE Terraform (they normally
-      # cascade when the Ingresses are deleted); a partial destroy can orphan them,
-      # and they keep billing. Same for CSI-provisioned EBS volumes. Everything is
-      # matched by the cluster tag / CSI tag; the S3 tfstate bucket and DynamoDB lock
-      # table are S3/DynamoDB, never matched here, so they are preserved.
-      - name: Delete orphaned load balancers, target groups, SGs and EBS volumes
+      - name: Delete Load Balancer Controller orphans that block the VPC
         if: always()
         run: |
           CLUSTER_TAG="mockten-eks"
+          VPC="$(aws ec2 describe-vpcs --filters Name=tag:Name,Values=mockten-vpc --query 'Vpcs[0].VpcId' --output text 2>/dev/null)"
           for ARN in $(aws elbv2 describe-load-balancers --query 'LoadBalancers[].LoadBalancerArn' --output text); do
             V="$(aws elbv2 describe-tags --resource-arns "${ARN}" --query "TagDescriptions[0].Tags[?Key=='elbv2.k8s.aws/cluster'].Value" --output text)"
-            if [ "${V}" = "${CLUSTER_TAG}" ]; then echo "Deleting orphaned ALB ${ARN}"; aws elbv2 delete-load-balancer --load-balancer-arn "${ARN}" || true; fi
+            [ "${V}" = "${CLUSTER_TAG}" ] && { echo "Deleting orphaned ALB ${ARN}"; aws elbv2 delete-load-balancer --load-balancer-arn "${ARN}" || true; }
           done
-          sleep 30
+          sleep 20
           for ARN in $(aws elbv2 describe-target-groups --query 'TargetGroups[].TargetGroupArn' --output text); do
             V="$(aws elbv2 describe-tags --resource-arns "${ARN}" --query "TagDescriptions[0].Tags[?Key=='elbv2.k8s.aws/cluster'].Value" --output text)"
-            if [ "${V}" = "${CLUSTER_TAG}" ]; then echo "Deleting orphaned target group ${ARN}"; aws elbv2 delete-target-group --target-group-arn "${ARN}" || true; fi
+            [ "${V}" = "${CLUSTER_TAG}" ] && aws elbv2 delete-target-group --target-group-arn "${ARN}" || true
           done
-          aws ec2 describe-volumes \
-            --filters Name=status,Values=available Name=tag-key,Values=kubernetes.io/created-for/pvc/name \
+          if [ "${VPC}" != "None" ] && [ -n "${VPC}" ]; then
+            for ENI in $(aws ec2 describe-network-interfaces --filters Name=vpc-id,Values=${VPC} Name=status,Values=available --query 'NetworkInterfaces[].NetworkInterfaceId' --output text); do
+              echo "Deleting leftover ENI ${ENI}"; aws ec2 delete-network-interface --network-interface-id "${ENI}" || true
+            done
+            # Non-default SGs left in the VPC are all LBC orphans by this point (the
+            # cluster/node SGs went with the cluster). Retry: they can reference each
+            # other, so a first pass may leave one that a later pass can then delete.
+            for _ in 1 2 3; do
+              SGS="$(aws ec2 describe-security-groups --filters Name=vpc-id,Values=${VPC} --query "SecurityGroups[?GroupName!='default'].GroupId" --output text)"
+              [ -z "${SGS}" ] && break
+              for SG in ${SGS}; do echo "Deleting leftover SG ${SG}"; aws ec2 delete-security-group --group-id "${SG}" 2>/dev/null || true; done
+              sleep 5
+            done
+          fi
+          aws ec2 describe-volumes --filters Name=status,Values=available Name=tag-key,Values=kubernetes.io/created-for/pvc/name \
             --query 'Volumes[].VolumeId' --output text | tr '\t' '\n' \
             | while read -r VOL; do [ -n "${VOL}" ] && { echo "Deleting orphaned EBS volume ${VOL}"; aws ec2 delete-volume --volume-id "${VOL}" || true; }; done
-          for SG in $(aws ec2 describe-security-groups --filters "Name=tag:elbv2.k8s.aws/cluster,Values=${CLUSTER_TAG}" --query 'SecurityGroups[].GroupId' --output text); do
-            echo "Deleting orphaned LBC security group ${SG}"; aws ec2 delete-security-group --group-id "${SG}" || true
-          done
-          # Release the NAT EIP if it was orphaned (unassociated). A leftover mapped
-          # public address is what blocks the Internet Gateway from detaching
-          # ("DependencyViolation: has some mapped public address(es)").
+          # A leftover mapped public address blocks the IGW from detaching.
           for ALLOC in $(aws ec2 describe-addresses --filters Name=tag:Name,Values=mockten-nat-eip --query 'Addresses[?AssociationId==null].AllocationId' --output text); do
             [ -n "${ALLOC}" ] && { echo "Releasing orphaned EIP ${ALLOC}"; aws ec2 release-address --allocation-id "${ALLOC}" || true; }
           done
+
+      - name: Terraform destroy — the VPC (and everything remaining)
+        working-directory: aws
+        run: |
+          if [ "${{ inputs.keep_dns_zone }}" = "true" ]; then
+            terraform destroy -auto-approve -target=module.nw
+          else
+            terraform destroy -auto-approve
+          fi
