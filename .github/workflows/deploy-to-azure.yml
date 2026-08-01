@@ -73,6 +73,16 @@ jobs:
             NETS="$(echo "${TF_VAR_allowlist_cidr},${RUNNER_IP}" | tr -d '[:space:]')"
             echo "Existing cluster ${CLUSTER} — authorizing this runner live before Terraform refresh."
             az aks update -g "${RG}" -n "${CLUSTER}" --api-server-authorized-ip-ranges "${NETS}" -o none
+            # The authorized-range change propagates to the API server a little after
+            # `az aks update` returns; if Terraform refreshes the k8s resources before
+            # then, every call fails "i/o timeout". Block until the runner can actually
+            # reach the API.
+            az aks get-credentials -g "${RG}" -n "${CLUSTER}" --admin --overwrite-existing -o none
+            echo "Waiting for the API server to admit this runner..."
+            for _ in $(seq 1 30); do
+              kubectl get --raw='/healthz' >/dev/null 2>&1 && { echo "API reachable."; break; }
+              sleep 10
+            done
           else
             echo "No cluster yet — the fresh apply will create it with this runner authorized."
           fi
