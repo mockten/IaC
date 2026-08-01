@@ -71,7 +71,16 @@ jobs:
       #   2. Cluster already gone but its k8s objects still sit in state -> those died
       #      with the cluster, so drop them from state; otherwise Terraform tries to
       #      refresh them against an API endpoint that no longer exists and times out.
-      - name: Authorize this runner, or drop orphaned Kubernetes state
+      # The Kubernetes layer is the fragile part of an EKS destroy, and Terraform
+      # deleting it in-graph fails two ways: (1) an ALB Ingress carries an LBC
+      # finalizer, and if the controller can't reach the ELB API (egress already
+      # gone) it never clears it, so the delete hangs forever; (2) a long destroy
+      # outlives the 15-min EKS auth token and every later k8s call returns
+      # "Unauthorized". So don't let Terraform manage k8s on teardown at all: force
+      # the Ingress finalizers off (the ALB is reclaimed by tag in the final step),
+      # then drop every k8s/Helm/kubectl resource from state. They die with the
+      # cluster anyway; Terraform is left to destroy only the AWS infrastructure.
+      - name: Force-delete ALB Ingresses and drop Kubernetes from state
         working-directory: aws
         run: |
           RUNNER_IP="$(curl -s https://api.ipify.org)/32"
@@ -79,7 +88,7 @@ jobs:
           CLUSTER="$(aws eks list-clusters --query 'clusters[0]' --output text 2>/dev/null)"
           if [ "${CLUSTER}" != "None" ] && [ -n "${CLUSTER}" ]; then
             NETS="$(echo "${TF_VAR_allowlist_cidr},${RUNNER_IP}" | tr -d '[:space:]')"
-            echo "Cluster ${CLUSTER} is up — authorizing this runner on the API server."
+            echo "Cluster ${CLUSTER} is up — authorizing this runner to reach the API."
             aws eks update-cluster-config --name "${CLUSTER}" \
               --resources-vpc-config "endpointPublicAccess=true,publicAccessCidrs=${NETS}" || true
             for _ in $(seq 1 30); do
@@ -87,12 +96,19 @@ jobs:
               [ "${S}" = "ACTIVE" ] && break
               sleep 20
             done
+            aws eks update-kubeconfig --name "${CLUSTER}" --region "${TF_VAR_region}" || true
+            for ING in ecfront-store ecfront-sales ecfront-admin dashboard; do
+              kubectl -n default patch ingress "${ING}" --type=merge \
+                -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
+              kubectl -n default delete ingress "${ING}" --ignore-not-found --timeout=30s 2>/dev/null || true
+            done
           else
-            echo "No cluster found — removing orphaned Kubernetes/Helm resources from state."
-            terraform state list 2>/dev/null \
-              | grep -E 'helm_release\.|kubernetes_|kubectl_manifest\.' \
-              | while read -r addr; do echo "  state rm ${addr}"; terraform state rm "${addr}" || true; done
+            echo "No cluster found."
           fi
+          echo "Dropping Kubernetes/Helm resources from state so Terraform teardown never touches the k8s API."
+          terraform state list 2>/dev/null \
+            | grep -E 'helm_release\.|kubernetes_|kubectl_manifest\.' \
+            | while read -r addr; do echo "  state rm ${addr}"; terraform state rm "${addr}" || true; done
 
       - name: Terraform destroy
         working-directory: aws
@@ -138,4 +154,10 @@ jobs:
             | while read -r VOL; do [ -n "${VOL}" ] && { echo "Deleting orphaned EBS volume ${VOL}"; aws ec2 delete-volume --volume-id "${VOL}" || true; }; done
           for SG in $(aws ec2 describe-security-groups --filters "Name=tag:elbv2.k8s.aws/cluster,Values=${CLUSTER_TAG}" --query 'SecurityGroups[].GroupId' --output text); do
             echo "Deleting orphaned LBC security group ${SG}"; aws ec2 delete-security-group --group-id "${SG}" || true
+          done
+          # Release the NAT EIP if it was orphaned (unassociated). A leftover mapped
+          # public address is what blocks the Internet Gateway from detaching
+          # ("DependencyViolation: has some mapped public address(es)").
+          for ALLOC in $(aws ec2 describe-addresses --filters Name=tag:Name,Values=mockten-nat-eip --query 'Addresses[?AssociationId==null].AllocationId' --output text); do
+            [ -n "${ALLOC}" ] && { echo "Releasing orphaned EIP ${ALLOC}"; aws ec2 release-address --allocation-id "${ALLOC}" || true; }
           done
