@@ -92,25 +92,17 @@ jobs:
           aws eks update-kubeconfig --name "${CLUSTER}" --region "${TF_VAR_region}"
           echo "Waiting for workloads to be Ready..."
           kubectl -n default wait --for=condition=Ready pods --all --timeout=420s || true
-          REC="http://recommendation-service.default.svc.cluster.local:8080"
-          # Kick training explicitly. The behavior-seeder Job already POSTs the train
-          # API, but that call races the recommendation/Kong startup and can miss —
-          # leaving Environment PENDING ("model not trained yet") on an otherwise
-          # healthy stack. Re-triggering here is idempotent and makes READY reliable.
-          echo "Triggering recommendation model training..."
-          kubectl -n default exec deploy/meilisearch-deploy -- \
-            curl -s -m 15 -X POST "${REC}/train" -H 'Content-Type: application/json' -d '{}' || true
-          echo "Waiting for the recommendation model to finish training..."
+          # The behavior-seeder Job (common/k8s/seeder — identical on every cloud)
+          # seeds the orders and triggers training; it waits for the recommendation
+          # service to be Ready first, so the model trains on its own. Just report.
+          echo "Reading the recommendation model status..."
           TRAINED="unknown"
           for _ in $(seq 1 40); do
             TRAINED="$(kubectl -n default exec deploy/meilisearch-deploy -- \
-              curl -s -m 5 "${REC}/model/status" 2>/dev/null \
+              curl -s -m 5 http://recommendation-service.default.svc.cluster.local:8080/model/status 2>/dev/null \
               | grep -o '"is_trained":[a-z]*' || true)"
             echo "  model: ${TRAINED:-pending}"
             echo "${TRAINED}" | grep -q 'true' && break
-            # Re-poke training if it still hasn't started after a while.
-            kubectl -n default exec deploy/meilisearch-deploy -- \
-              curl -s -m 10 -X POST "${REC}/train" -H 'Content-Type: application/json' -d '{}' >/dev/null 2>&1 || true
             sleep 15
           done
           {

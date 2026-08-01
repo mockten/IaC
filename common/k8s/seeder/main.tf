@@ -35,6 +35,19 @@ resource "kubernetes_job" "seed" {
           name = "ghcr-secret"
         }
 
+        # The seeder seeds the orders and then POSTs the recommendation /train API.
+        # That POST otherwise races the recommendation service's startup: if it lands
+        # before the service is Ready it is lost, the seeder Job still succeeds, and
+        # the model is never trained — the dashboard then reads Environment PENDING on
+        # an otherwise-healthy stack. Block until the training target is actually
+        # reachable so the trigger always lands. (Cloud-agnostic — every root shares
+        # this module.)
+        init_container {
+          name    = "wait-for-recommendation"
+          image   = "busybox:1.36"
+          command = ["sh", "-c", "until wget -q -T 3 -O /dev/null http://recommendation-service.default.svc.cluster.local:8080/health 2>/dev/null; do echo 'waiting for recommendation to be ready...'; sleep 5; done; sleep 10; echo 'recommendation ready'"]
+        }
+
         container {
           name  = "seeder"
           image = var.image
