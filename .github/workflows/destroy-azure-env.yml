@@ -62,35 +62,51 @@ jobs:
         working-directory: azure
         run: terraform init
 
-      # Make destroy work from ANY state, including a half-destroyed one.
-      #   1. Cluster still up  -> authorize this runner LIVE on the AKS API server
-      #      (setting the TF var alone is not enough on destroy).
-      #   2. Cluster already gone but its k8s objects still sit in state -> those died
-      #      with the cluster, so drop them from state; otherwise Terraform tries to
-      #      refresh them against an API endpoint that no longer exists and times out.
-      # Don't let Terraform manage the Kubernetes layer on teardown: a long destroy
-      # can outlive the AKS auth token, and the k8s objects die with the cluster
-      # anyway. Authorize the runner (so the token is valid for the state ops), then
-      # drop every k8s/Helm resource from state — Terraform then destroys only Azure
-      # infrastructure. Unlike AWS, AGIC leaves nothing orphaned in the VNet (the App
-      # Gateway is Terraform-owned and deleted directly).
-      - name: Authorize this runner and drop Kubernetes from state
+      # Delete the AKS cluster up front, synchronously, so `terraform destroy` never
+      # trips over it. Two problems this avoids:
+      #   1. The nodes subnet can't be deleted while the AKS node VMSS still lives in
+      #      it, and only deleting the cluster removes that VMSS (and its MC_* node
+      #      resource group). Terraform's own cluster delete can RETURN before Azure
+      #      finishes tearing the MC_* RG down, so Terraform then races ahead to the
+      #      subnet and fails: "InUseSubnetCannotBeDeleted". Deleting the cluster here
+      #      and WAITING for the node RG to vanish leaves the subnet free.
+      #   2. The cluster's in-cluster Kubernetes/Helm objects die with it; refreshing
+      #      them against a gone API server would only time out. Drop them — and the
+      #      cluster + its AGIC role assignments — from state so Terraform destroys only
+      #      the remaining Azure infrastructure. `az aks delete` is a management-plane
+      #      call, so no API-server IP authorization is needed.
+      - name: Delete the AKS cluster up front and drop Kubernetes from state
         working-directory: azure
         run: |
-          RUNNER_IP="$(curl -s https://api.ipify.org)/32"
-          echo "TF_VAR_master_authorized_extra=[\"${RUNNER_IP}\"]" >> "$GITHUB_ENV"
           CLUSTER="$(az aks list --query '[0].name' -o tsv 2>/dev/null)"
           RG="$(az aks list --query '[0].resourceGroup' -o tsv 2>/dev/null)"
           if [ -n "${CLUSTER}" ]; then
-            NETS="$(echo "${TF_VAR_allowlist_cidr},${RUNNER_IP}" | tr -d '[:space:]')"
-            echo "Cluster ${CLUSTER} is up — authorizing this runner on the API server."
-            az aks update -g "${RG}" -n "${CLUSTER}" --api-server-authorized-ip-ranges "${NETS}" -o none
+            NODE_RG="$(az aks show -g "${RG}" -n "${CLUSTER}" --query nodeResourceGroup -o tsv 2>/dev/null)"
+            echo "Deleting AKS cluster ${CLUSTER} synchronously (frees the nodes subnet)."
+            az aks delete -g "${RG}" -n "${CLUSTER}" --yes
+            if [ -n "${NODE_RG}" ]; then
+              echo "Waiting for node resource group ${NODE_RG} to disappear..."
+              for _ in $(seq 1 60); do
+                az group show -n "${NODE_RG}" >/dev/null 2>&1 || { echo "  gone."; break; }
+                sleep 10
+              done
+            fi
           else
-            echo "No cluster found."
+            echo "No AKS cluster present."
           fi
-          echo "Dropping Kubernetes/Helm resources from state."
+          # The cluster may already be gone from a prior partial destroy while its MC_*
+          # node RG (and the VMSS in the subnet) was orphaned — which is exactly what
+          # still blocks the subnet. Delete any leftover MC_* RG SYNCHRONOUSLY (no
+          # --no-wait) here, so the subnet is guaranteed free before Terraform runs.
+          az group list --query "[?starts_with(name,'MC_mockten')].name" -o tsv \
+            | while read -r NRG; do
+                [ -z "${NRG}" ] && continue
+                echo "Deleting leftover node resource group ${NRG} synchronously."
+                az group delete --name "${NRG}" --yes || true
+              done
+          echo "Dropping the cluster, its AGIC role assignments, and Kubernetes/Helm from state."
           terraform state list 2>/dev/null \
-            | grep -E 'helm_release\.|kubernetes_|kubectl_manifest\.' \
+            | grep -E 'module\.aks\.|azurerm_role_assignment\.agic_|helm_release\.|kubernetes_|kubectl_manifest\.' \
             | while read -r addr; do echo "  state rm ${addr}"; terraform state rm "${addr}" || true; done
 
       - name: Terraform destroy
@@ -120,10 +136,12 @@ jobs:
       - name: Delete leftover node resource groups and orphaned disks
         if: always()
         run: |
-          for RG in $(az group list --query "[?starts_with(name,'MC_mockten')].name" -o tsv); do
-            echo "Deleting leftover node resource group ${RG}"
-            az group delete -n "${RG}" --yes --no-wait || true
-          done
+          az group list --query "[?starts_with(name,'MC_mockten')].name" -o tsv \
+            | while read -r RG; do
+                [ -z "${RG}" ] && continue
+                echo "Deleting leftover node resource group ${RG}"
+                az group delete --name "${RG}" --yes --no-wait || true
+              done
           az disk list --query "[?diskState=='Unattached' && starts_with(name,'pvc-')].id" -o tsv \
             | while read -r ID; do
                 [ -z "${ID}" ] && continue
