@@ -33,9 +33,16 @@ resource "azurerm_web_application_firewall_policy" "appgw" {
   location            = var.location
   resource_group_name = var.resource_group_name
 
+  # Detection, not Prevention: access is already IP-locked at L3 by the subnet NSG
+  # (../nw) and by the custom rule below, so the OWASP managed ruleset adds no real
+  # protection for this single-tenant, allowlisted environment — it only false-
+  # positives on legitimate flows (the Keycloak Google OAuth callback's state/query
+  # trips CRS and returns 403). aws/ runs its CloudFront WAF as an IP allowlist ONLY,
+  # with no managed rules, for the same reason; Detection mode is the App Gateway
+  # equivalent (OWASP logs but never blocks) while the NSG remains the enforcing gate.
   policy_settings {
     enabled = true
-    mode    = "Prevention"
+    mode    = "Detection"
   }
 
   custom_rules {
