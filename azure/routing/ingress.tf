@@ -3,6 +3,12 @@ locals {
     "kubernetes.io/ingress.class"              = "azure/application-gateway"
     "cert-manager.io/cluster-issuer"           = "letsencrypt"
     "appgw.ingress.kubernetes.io/ssl-redirect" = "true"
+    # AGIC derives a per-backend health probe from the Ingress path when a pod has no
+    # readinessProbe. Kong (apigw) and Keycloak (uam) return 4xx on those probe paths
+    # (e.g. /api/ -> 404), so App Gateway marks the backend Unhealthy and every /api/
+    # and login request 502s while the pod is actually fine. Treat any HTTP response
+    # as healthy — the same fix aws/routing uses via ALB `success-codes = 200-499`.
+    "appgw.ingress.kubernetes.io/health-probe-status-codes" = "200-499"
   }
 
   ecfront_paths = [
