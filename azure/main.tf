@@ -82,6 +82,17 @@ resource "azurerm_role_assignment" "agic_rg_reader" {
   role_definition_name = "Reader"
   principal_id         = module.aks.agic_identity_object_id
 }
+# AGIC pushes the gateway's full config (including the gatewayIPConfiguration that
+# references the App Gateway subnet), which Azure gates on
+# Microsoft.Network/virtualNetworks/subnets/join/action. Reader on the RG + Contributor
+# on the gateway do NOT grant that, so without this AGIC fails every reconcile with
+# "ApplicationGatewayInsufficientPermissionOnSubnet" and never programs the HTTPS
+# listeners — the site then times out. Network Contributor on the subnet grants join.
+resource "azurerm_role_assignment" "agic_subnet_join" {
+  scope                = module.nw.appgw_subnet_id
+  role_definition_name = "Network Contributor"
+  principal_id         = module.aks.agic_identity_object_id
+}
 
 module "dns" {
   source                = "./dns"

@@ -121,6 +121,7 @@ jobs:
               -target=module.common_k8s \
               -target=azurerm_role_assignment.agic_appgw \
               -target=azurerm_role_assignment.agic_rg_reader \
+              -target=azurerm_role_assignment.agic_subnet_join \
               -target=module.aks \
               -target=module.appgw \
               -target=module.nw
