@@ -21,6 +21,19 @@ run it again and it continues from where it stopped.
 > `common/k8s` (workloads) → [`routing/`](routing) (the ALB Ingresses) → [`cdn/`](cdn)
 > (CloudFront + WAF + the A records, which alias CloudFront, not the ALB).
 
+## Architecture
+
+| Layer | Resource |
+|---|---|
+| Network | VPC with public + private subnets across two AZs and one NAT gateway (private nodes reach the internet / pull ghcr images) |
+| Cluster | EKS + a managed node group (free-tier `m7i-flex.large`), IRSA via the OIDC provider, a dedicated EBS CSI IRSA role, `gp3` StorageClass; control plane locked to `allowlist_cidr` |
+| Ingress | **AWS Load Balancer Controller + one shared ALB** — the four host Ingresses join a single IngressGroup. Cloud-native, not nginx |
+| CDN | **CloudFront** in front of the ALB for edge caching |
+| TLS | **ACM** (AWS-managed, auto-renewed) — no Let's Encrypt rate limit |
+| IP allowlist | **WAFv2** (us-east-1) IP set on CloudFront: allow `allowlist_cidr` + the NAT egress IP, default-block |
+| DNS | Route53 hosted zone + A records **aliasing CloudFront**; nameservers **pushed to the registrar automatically** (terracurl) |
+| Workloads | `module.common_k8s` — the 21 mockten services, the same module GKE and AKS deploy |
+
 ## Prerequisites (one-time, per fresh clone / account)
 
 Run these once with the AWS CLI before the first `terraform init`. They create only the

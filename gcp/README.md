@@ -99,7 +99,7 @@ GitHub secrets. Required variables:
 | `domain_api_key` | DigitalPlat bearer token (`dp_live_...`) |
 | `allowlist_cidr` | the one IP allowed at the ingress + control plane (default = home IP) |
 
-### GitHub Actions secrets
+## GitHub Actions secrets
 
 CI reads the same values from repository secrets (Settings → Secrets and
 variables → Actions). The secret **names differ from the `.env` names** in two
@@ -164,9 +164,24 @@ terraform destroy
 is a read-only GET on destroy (the delegation is left in place; re-point or
 release the domain manually if desired).
 
-## GitHub Actions
+## GKE / free-tier gotchas
 
-`../.github/workflows/deploy-to-gcp.yml` runs this manually
-(`workflow_dispatch`), authenticating with the `GCP_SA_KEY` secret and injecting
-the runner's egress IP into the control-plane allowlist for the run. See that
-file's header for the full secret list.
+A fresh project is constrained; these traps each cost real time — do not
+re-introduce them:
+
+- **GKE Standard, not Autopilot.** Autopilot injects a 0.5 vCPU / 2 GiB request
+  into every pod that declares none; for ~21 tiny services that exceeds the
+  namespace quota and a fresh project's GCE quota, so nothing schedules.
+- **minio's PVC needs `wait_until_bound = false`.** `standard-rwo` is
+  WaitForFirstConsumer, so the PVC only binds when a pod mounts it — but the
+  provider blocks the Deployment until the PVC binds. Deadlock → timeout.
+- **cert-manager needs an explicit `hostedZoneName` and public recursive
+  resolvers** (`--dns01-recursive-nameservers=8.8.8.8:53,1.1.1.1:53
+  --dns01-recursive-nameservers-only`), or DNS-01 auto-detection lands on
+  `dpdns.org` and the self-check times out against the parent nameservers.
+- **The registrar NS push must carry a browser `User-Agent`** or a WAF returns a
+  Cloudflare challenge page (`serializer for text/html doesn't exist`).
+- **Cloud Armor is unavailable on the free tier** (`SECURITY_POLICIES` quota 0),
+  so GCP stays on ingress-nginx + `loadBalancerSourceRanges` rather than the
+  cloud-native GKE Ingress the `aws/` and `azure/` targets use; upgrade the
+  billing account to unlock it.

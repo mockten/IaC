@@ -25,6 +25,19 @@ run it again and it continues from where it stopped.
 > The old VM-based design (`main.tf`, `variables.tf`, `nw/`, `fw/`, `vmss/`) has been
 > moved to [`legacy/`](legacy) and is not part of this root.
 
+## Architecture
+
+| Layer | Resource |
+|---|---|
+| Network | VNet with a nodes subnet + a dedicated App Gateway subnet; the subnet **NSG** admits only `allowlist_cidr` (+ the AKS egress IP) on 80/443 |
+| Cluster | AKS **Standard** + node pool (`D2s_v7`), OIDC issuer + Workload Identity; API server locked to `allowlist_cidr` |
+| Ingress | **AGIC (Application Gateway Ingress Controller) + Application Gateway WAF_v2** — cloud-native, not nginx |
+| CDN | none — Azure Front Door is **forbidden on Free Trial**, so there is no edge layer |
+| TLS | **cert-manager**, Let's Encrypt **DNS-01** over Azure DNS (via the kubelet managed identity) — no inbound 80/443 needed |
+| IP allowlist | the App Gateway **WAF** custom rule (RemoteAddr IPMatch) **and** the subnet NSG, both set to `allowlist_cidr` + the cluster egress IP |
+| DNS | Azure DNS zone + A records → the App Gateway public IP; nameservers **pushed to the registrar automatically** (terracurl) |
+| Workloads | `module.common_k8s` — the 21 mockten services, the same module GKE and EKS deploy |
+
 ## Prerequisites (one-time, per fresh clone / subscription)
 
 Run these once with the Azure CLI before the first `terraform init`.
@@ -84,10 +97,16 @@ Locally the repo `.env` (gitignored) supplies them; in CI they come from GitHub 
 | `allowlist_cidr` | CIDR(s) allowed at the App Gateway WAF + NSG + the AKS API server; comma-separated for several people |
 | `root_domain` / `letsencrypt_email` | apex domain and the cert-manager (Let's Encrypt) account email |
 
-The GitHub Actions secret list (with the `GITHUB_* -> GH_*` rename and the cloud-vs-dev
-OAuth guidance) is documented once in the top-level [README](../README.md#github-actions-secrets).
-Azure needs **only the `AZURE_*` secrets in addition** to that shared set — no
-`GCP_SA_KEY`, no `repo_pat`.
+## GitHub Actions secrets
+
+The shared secret list (the `GITHUB_* -> GH_*` rename and the cloud-vs-dev OAuth
+guidance) is documented once in the top-level
+[README](../README.md#github-actions-secrets). Azure needs **only the `AZURE_*`
+secrets in addition** to that shared set — no `GCP_SA_KEY`, no `repo_pat`:
+
+| Secret | Value |
+|---|---|
+| `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET` / `AZURE_SUBSCRIPTION_ID` / `AZURE_TENANT_ID` | the deploy service principal's four fields (Prerequisites step 4) |
 
 ## Apply
 
