@@ -37,7 +37,6 @@ jobs:
       TF_VAR_domain_api_key: ${{ secrets.DOMAIN_API_KEY }}
       TF_VAR_allowlist_cidr: ${{ secrets.ALLOWLIST_CIDR }}
       TF_VAR_root_domain: ${{ secrets.ROOT_DOMAIN }}
-      TF_VAR_letsencrypt_email: ${{ secrets.LETSENCRYPT_EMAIL }}
 
     steps:
       - name: Check the typed confirmation
@@ -77,7 +76,16 @@ jobs:
       #      destroy that stopped partway) → those objects died with the cluster, so
       #      drop them from state; otherwise Terraform tries to refresh them against
       #      an API endpoint that no longer exists and times out.
-      - name: Authorize this runner, or drop orphaned Kubernetes state
+      # The GKE (gce) Ingress creates the external Application LB out-of-band — global
+      # forwarding rules, target proxies, url maps, backend services, health checks,
+      # NEGs, an mcrt-* SSL cert and l7 firewall rules. Deleting the Ingress OBJECT is
+      # what makes the GKE controller tear all of that down cleanly; if Terraform just
+      # deletes the cluster/VPC first, those LB resources orphan and (like the AWS LBC
+      # orphans) keep billing and block the network delete. So when the cluster is up:
+      # authorize the runner, delete the Ingresses via kubectl, and WAIT for the LB
+      # resources to drain. Then (either case) drop the Kubernetes layer from state so
+      # Terraform destroys only GCP infrastructure.
+      - name: Authorize runner, delete Ingresses so GKE drains the LB, drop k8s state
         working-directory: gcp
         run: |
           RUNNER_IP="$(curl -s https://api.ipify.org)/32"
@@ -90,15 +98,28 @@ jobs:
               --zone us-east1-b --project "${GCP_PROJECT}" \
               --enable-master-authorized-networks \
               --master-authorized-networks "${NETS}"
+            gcloud container clusters get-credentials "${CLUSTER}" \
+              --zone us-east1-b --project "${GCP_PROJECT}"
+            echo "Deleting Ingresses so the GKE controller tears down the Application LB."
+            kubectl -n default delete ingress --all --ignore-not-found --timeout=120s || true
+            echo "Waiting for GKE-managed forwarding rules to drain..."
+            for _ in $(seq 1 30); do
+              LEFT=$(gcloud compute forwarding-rules list --project "${GCP_PROJECT}" \
+                --filter="name~'^k8s'" --format="value(name)" | wc -l | tr -d ' ')
+              echo "  k8s forwarding-rules remaining: ${LEFT}"
+              [ "${LEFT}" = "0" ] && break
+              sleep 10
+            done
           else
-            echo "No cluster found — removing orphaned Kubernetes/Helm resources from state."
-            terraform state list 2>/dev/null \
-              | grep -E 'helm_release\.|kubernetes_|kubectl_manifest\.' \
-              | while read -r addr; do
-                  echo "  state rm ${addr}"
-                  terraform state rm "${addr}" || true
-                done
+            echo "No cluster found — skipping live LB drain."
           fi
+          echo "Dropping Kubernetes resources from state (they die with the cluster)."
+          terraform state list 2>/dev/null \
+            | grep -E 'kubernetes_|kubectl_manifest\.|helm_release\.' \
+            | while read -r addr; do
+                echo "  state rm ${addr}"
+                terraform state rm "${addr}" || true
+              done
 
       # A destroy that fails at plan time has historically been the failure mode
       # here (an unknown value reaching a `count` breaks destroy as well as
@@ -119,7 +140,7 @@ jobs:
               -target=module.platform \
               -target=module.gke \
               -target=module.nw \
-              -target=google_compute_address.ingress
+              -target=google_compute_global_address.ingress
           else
             terraform destroy -auto-approve
           fi
@@ -130,6 +151,45 @@ jobs:
       # therefore leaves those pvc-* disks orphaned and still billing. Delete the
       # unattached ones so a destroy is actually clean. `if: always()` so it also
       # cleans up after a partial destroy.
+      # Belt-and-suspenders for the GKE Ingress LB: if the controller did not finish
+      # draining before the cluster went away, its resources orphan and keep billing.
+      # Delete them in dependency order (a backend service can't go while a proxy/url
+      # map still points at it, etc.). All are named k8s*/mcrt* by GKE, so the apex
+      # storefront's own Terraform resources are never matched. The Cloud Armor policy
+      # is Terraform-owned and removed by the destroy once no backend references it.
+      - name: Delete orphaned GKE load-balancer resources
+        if: always()
+        run: |
+          P="${GCP_PROJECT}"
+          sweep() { # $1=resource group, rest=extra flags
+            local kind="$1"; shift
+            gcloud compute "${kind}" list --project "$P" --filter="name~'^(k8s|mcrt)'" \
+              --format="value(name)" 2>/dev/null | while read -r N; do
+                [ -z "$N" ] && continue
+                echo "  deleting ${kind} ${N}"
+                gcloud compute "${kind}" delete "$N" --project "$P" --global --quiet "$@" 2>/dev/null || true
+              done
+          }
+          echo "forwarding-rules";        sweep forwarding-rules
+          echo "target-https-proxies";    sweep target-https-proxies
+          echo "target-http-proxies";     sweep target-http-proxies
+          echo "url-maps";                sweep url-maps
+          echo "backend-services";        sweep backend-services
+          echo "health-checks";           sweep health-checks
+          echo "ssl-certificates";        sweep ssl-certificates
+          echo "firewall-rules"
+          gcloud compute firewall-rules list --project "$P" --filter="name~'^k8s'" \
+            --format="value(name)" 2>/dev/null | while read -r N; do
+              [ -z "$N" ] && continue; echo "  deleting firewall-rule ${N}"
+              gcloud compute firewall-rules delete "$N" --project "$P" --quiet 2>/dev/null || true
+            done
+          echo "network-endpoint-groups (zonal)"
+          gcloud compute network-endpoint-groups list --project "$P" --filter="name~'^k8s'" \
+            --format="value(name,zone.basename())" 2>/dev/null | while read -r N Z; do
+              [ -z "$N" ] && continue; echo "  deleting NEG ${N} (${Z})"
+              gcloud compute network-endpoint-groups delete "$N" --zone "$Z" --project "$P" --quiet 2>/dev/null || true
+            done
+
       - name: Delete orphaned PVC disks
         if: always()
         run: |

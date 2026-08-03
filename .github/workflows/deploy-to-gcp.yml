@@ -10,7 +10,6 @@ name: GCP 2.Deploy
 #   GCP_PROJECT       GCP project id (also names the state bucket <project>-tfstate)
 #   GH_USERNAME / GH_TOKEN / GH_EMAIL            ghcr image pull
 #   ROOT_DOMAIN       apex domain served by the storefront
-#   LETSENCRYPT_EMAIL ACME account email
 #   ALLOWLIST_CIDR    the one IP allowed at the ingress + control plane
 #   DOMAIN_API_KEY    DigitalPlat bearer token for the nameserver push
 #   STRIPE_SECRET_KEY / STRIPE_PUBLIC_KEY        payments
@@ -23,11 +22,6 @@ name: GCP 2.Deploy
 
 on:
   workflow_dispatch:
-    inputs:
-      acme_staging:
-        description: "Issue TLS from Let's Encrypt STAGING (browsers warn, but the rate limit is effectively unmetered). Use while iterating."
-        type: boolean
-        default: false
 
 jobs:
   deploy:
@@ -48,8 +42,6 @@ jobs:
       TF_VAR_domain_api_key: ${{ secrets.DOMAIN_API_KEY }}
       TF_VAR_allowlist_cidr: ${{ secrets.ALLOWLIST_CIDR }}
       TF_VAR_root_domain: ${{ secrets.ROOT_DOMAIN }}
-      TF_VAR_letsencrypt_email: ${{ secrets.LETSENCRYPT_EMAIL }}
-      TF_VAR_acme_staging: ${{ inputs.acme_staging }}
 
     steps:
       - uses: actions/checkout@v4
@@ -96,21 +88,29 @@ jobs:
         working-directory: gcp
         run: terraform apply -auto-approve
 
-      # Nameserver delegation is pushed to the registrar by Terraform, but the TLD
-      # takes time to serve it, and cert-manager cannot answer the DNS-01 challenge
-      # until it does. Report rather than fail: the certificates retry on their own.
-      - name: Report certificate status
+      # The Google-managed certificate only goes Active once the four hosts resolve
+      # to the LB IP (nameserver delegation must reach the registrar and propagate)
+      # AND the external Application LB is serving — which can take 10-60 min the
+      # first time. There is no Let's Encrypt rate limit to worry about; it just
+      # takes a while. Report rather than fail: it finishes on its own after the run.
+      - name: Report managed-certificate and LB status
         if: always()
         working-directory: gcp
         run: |
           gcloud container clusters get-credentials "$(terraform output -raw cluster_name)" \
             --zone us-east1-b --project "${GCP_PROJECT}"
           for i in $(seq 1 40); do
-            READY=$(kubectl -n default get certificate --no-headers 2>/dev/null | grep -c True || true)
-            [ "${READY:-0}" = "4" ] && break
+            STATUS=$(kubectl -n default get managedcertificate mockten-cert \
+              -o jsonpath='{.status.certificateStatus}' 2>/dev/null || true)
+            echo "attempt ${i}: managed cert = ${STATUS:-<none>}"
+            [ "${STATUS}" = "Active" ] && break
             sleep 15
           done
-          kubectl -n default get certificate || true
+          echo "--- managed certificate ---"
+          kubectl -n default describe managedcertificate mockten-cert 2>/dev/null | grep -iE 'Status|Domain' || true
+          echo "--- ingress (LB IP) ---"
+          kubectl -n default get ingress || true
+          echo "--- pods ---"
           kubectl -n default get pods || true
 
       - name: Summary
@@ -122,7 +122,7 @@ jobs:
             echo '```'
             terraform output -json hosts | python3 -m json.tool
             echo '```'
-            echo "TLS: ${{ inputs.acme_staging && 'Let''s Encrypt STAGING (browsers will warn)' || 'Let''s Encrypt production' }}"
+            echo "TLS: Google-managed certificate (auto-issued once DNS + LB propagate; no rate limit)."
             echo ""
             echo "E2E credentials are in Terraform state, not here:"
             echo '```'
