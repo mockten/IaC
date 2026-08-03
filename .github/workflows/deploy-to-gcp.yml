@@ -60,6 +60,15 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
 
+      # kubectl against GKE needs the gke-gcloud-auth-plugin credential helper; the
+      # runner's gcloud doesn't ship it, so `get-credentials` + kubectl fail with
+      # "executable gke-gcloud-auth-plugin not found". Install it before any kubectl.
+      - name: Install gke-gcloud-auth-plugin
+        run: |
+          gcloud components install gke-gcloud-auth-plugin --quiet \
+            || (sudo apt-get update && sudo apt-get install -y google-cloud-cli-gke-gcloud-auth-plugin)
+          gke-gcloud-auth-plugin --version
+
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.9.5
