@@ -1,9 +1,8 @@
-# Reserved GLOBAL external IP for the GKE (gce) Ingress → external Application LB.
-# Global (not regional) because the gce controller builds a global external
-# Application LB. Reserved up front so the DNS A records and the LB agree at plan
-# time (no "wait for the LB IP" dance); the Ingress binds it by name.
-resource "google_compute_global_address" "ingress" {
-  name = "mockten-ingress-ip"
+# Reserved regional external IP for the nginx-ingress LB. Reserved up front so the
+# DNS A records and the LB agree at plan time (no "wait for the LB IP" dance).
+resource "google_compute_address" "ingress" {
+  name   = "mockten-ingress-ip"
+  region = var.region
 }
 
 # Kept in state rather than generated per-start in the container, so a dashboard
@@ -47,27 +46,27 @@ module "gke" {
 module "dns" {
   source              = "./dns"
   root_domain         = var.root_domain
-  ingress_ip          = google_compute_global_address.ingress.address
+  ingress_ip          = google_compute_address.ingress.address
   domain_api_base_url = var.domain_api_base_url
   domain_api_key      = var.domain_api_key
 }
 
 module "platform" {
-  source         = "./platform"
-  project        = var.project
-  global_ip_name = google_compute_global_address.ingress.name
-  allowlist_cidr = var.allowlist_cidr
-  egress_cidr    = "${module.nw.nat_ip}/32"
-  host_store     = local.host_store
-  host_sales     = local.host_sales
-  host_admin     = local.host_admin
-  host_dashboard = local.host_dashboard
+  source                 = "./platform"
+  project                = var.project
+  ingress_ip             = google_compute_address.ingress.address
+  allowlist_cidr         = var.allowlist_cidr
+  egress_cidr            = "${module.nw.nat_ip}/32"
+  letsencrypt_email      = var.letsencrypt_email
+  acme_staging           = var.acme_staging
+  workload_identity_pool = module.gke.workload_identity_pool
+  dns_zone_name          = module.dns.zone_name
+  host_store             = local.host_store
+  host_sales             = local.host_sales
+  host_admin             = local.host_admin
+  host_dashboard         = local.host_dashboard
 
-  # After common_k8s: the Ingress and the backend-config/NEG annotations target the
-  # Services that module.common_k8s creates, so they must already exist. No cycle —
-  # common_k8s no longer consumes anything from platform (the old internal_ingress_ip
-  # hairpin is gone; the dashboard reaches the external LB, allowlisted via Cloud Armor).
-  depends_on = [module.gke, module.common_k8s]
+  depends_on = [module.gke]
 }
 
 # The portable workloads — identical module to the one `local` deploys, with the
@@ -112,10 +111,9 @@ module "common_k8s" {
   # data and kick off training (local seeds via the Taskfile instead).
   enable_seed_job = true
 
-  # No internal_ingress_ip: cloud-native ingress has no in-cluster controller to
-  # hairpin to. The dashboard's readiness self-check reaches the external LB, whose
-  # Cloud Armor policy allowlists the cluster's Cloud NAT egress IP so the probe
-  # isn't blocked (same model as aws/ and azure/).
+  # Let the dashboard reach the ingress in-cluster for its readiness TLS check,
+  # instead of hairpinning to the external LB IP (which times out → PENDING).
+  internal_ingress_ip = module.platform.ingress_cluster_ip
 
   # _enabled is the literal true, NOT `secret != ""` — the secret's value is
   # unknown until apply, and a count may not depend on that.

@@ -1,34 +1,28 @@
-# Host-based Ingress on the GKE (gce) controller → external Application LB. TLS is
-# the Google-managed certificate (../platform: kubectl_manifest.managed_cert), the
-# HTTP→HTTPS redirect and the Cloud Armor/CDN come from the Frontend/BackendConfigs,
-# so there is no per-host `tls` block or cert-manager annotation here (that is the
-# old nginx model). The gce controller picks the reserved global static IP by name.
-#
-# NOTE: unlike the nginx version there is no `app-root` redirect for sales/admin —
-# GKE Ingress has no equivalent (same trade-off as azure/). The subdomain lands on
-# the storefront root; the portal path is reached by the app's own navigation.
+# Host-based HTTPS Ingress. cert-manager auto-issues a cert per host from the tls
+# block + the cluster-issuer annotation. The three ecfront hosts share backend
+# routing (mirrors local's ecfront-ingress); sales/admin add a root redirect so
+# the subdomain lands on that portal without any app change.
 
 locals {
+  # Longest-prefix wins in nginx, so order is cosmetic; all Prefix for safety.
   ecfront_paths = [
     { path = "/api/test/", svc = "backdoor-service", port = 8080 },
     { path = "/api/", svc = "apigw-service", port = 80 },
     { path = "/realms/mockten-realm-dev/broker/", svc = "uam-service", port = 80 },
     { path = "/realms/mockten-realm-dev/login-actions/", svc = "uam-service", port = 80 },
+    # Keycloak's own CSS/JS/images. Without this they fall through to "/" and the
+    # storefront SPA answers 200 with index.html for every stylesheet request —
+    # so the login and account-linking pages render as unstyled HTML with a
+    # giant broken SVG. The 200 makes it look like the asset loaded, which is
+    # why this hid for so long.
     { path = "/resources/", svc = "uam-service", port = 80 },
     { path = "/", svc = "ecfront-service", port = 80 },
   ]
 
   ecfront_hosts = {
-    store = var.host_store
-    sales = var.host_sales
-    admin = var.host_admin
-  }
-
-  ingress_annotations = {
-    "kubernetes.io/ingress.class"                 = "gce"
-    "kubernetes.io/ingress.global-static-ip-name" = var.global_ip_name
-    "networking.gke.io/managed-certificates"      = "mockten-cert"
-    "networking.gke.io/v1beta1.FrontendConfig"    = "mockten-fe"
+    store = { host = var.host_store, app_root = null }
+    sales = { host = var.host_sales, app_root = "/seller/login" }
+    admin = { host = var.host_admin, app_root = "/admin" }
   }
 }
 
@@ -36,14 +30,22 @@ resource "kubernetes_ingress_v1" "ecfront" {
   for_each = local.ecfront_hosts
 
   metadata {
-    name        = "ecfront-${each.key}"
-    namespace   = "default"
-    annotations = local.ingress_annotations
+    name      = "ecfront-${each.key}"
+    namespace = "default"
+    annotations = merge(
+      { "cert-manager.io/cluster-issuer" = "letsencrypt" },
+      each.value.app_root == null ? {} : { "nginx.ingress.kubernetes.io/app-root" = each.value.app_root }
+    )
   }
 
   spec {
+    ingress_class_name = "nginx"
+    tls {
+      hosts       = [each.value.host]
+      secret_name = "${each.key}-tls"
+    }
     rule {
-      host = each.value
+      host = each.value.host
       http {
         dynamic "path" {
           for_each = local.ecfront_paths
@@ -62,23 +64,41 @@ resource "kubernetes_ingress_v1" "ecfront" {
     }
   }
 
-  depends_on = [
-    kubectl_manifest.managed_cert,
-    kubectl_manifest.frontend_config,
-    kubernetes_annotations.backend,
-  ]
+  depends_on = [helm_release.ingress_nginx, kubectl_manifest.cluster_issuer]
 }
 
-# The dashboard is reachable ONLY at dashboard.<domain> (see the long note kept in
-# git history) — served at the root of its own host.
+# The dashboard is reachable ONLY at dashboard.<domain> — deliberately not at
+# <storefront>/dashboard. In cloud the deployment is internet-facing, so the
+# domains are kept genuinely separate rather than being aliases of each other.
+# (Local keeps <base>/dashboard; that difference is intentional.)
+#
+# Consequence: the E2E's dashboard specs target <base>/dashboard and will fail
+# against cloud until the suite points at the dashboard host in cloud mode —
+# tracked in MOCKTEN_REQUESTS.md.
+#
+# Served at the ROOT of its own host — no /dashboard prefix, no rewrite.
+#
+# This used to carry app-root=/dashboard/ + a rewrite, because the dashboard's JS
+# asked for absolute /dashboard/api/... paths. In cloud mode it no longer does:
+# the dashboard owns the host and calls /api/... directly, so the old prefix made
+# every API request 404 (proved: /api/containers returned 404, not the 401 the
+# auth guard should have produced). Only dev still has the /dashboard prefix,
+# where a proxy strips it.
 resource "kubernetes_ingress_v1" "dashboard" {
   metadata {
-    name        = "dashboard"
-    namespace   = "default"
-    annotations = local.ingress_annotations
+    name      = "dashboard"
+    namespace = "default"
+    annotations = {
+      "cert-manager.io/cluster-issuer" = "letsencrypt"
+    }
   }
 
   spec {
+    ingress_class_name = "nginx"
+    tls {
+      hosts       = [var.host_dashboard]
+      secret_name = "dashboard-tls"
+    }
     rule {
       host = var.host_dashboard
       http {
@@ -96,9 +116,5 @@ resource "kubernetes_ingress_v1" "dashboard" {
     }
   }
 
-  depends_on = [
-    kubectl_manifest.managed_cert,
-    kubectl_manifest.frontend_config,
-    kubernetes_annotations.backend,
-  ]
+  depends_on = [helm_release.ingress_nginx, kubectl_manifest.cluster_issuer]
 }

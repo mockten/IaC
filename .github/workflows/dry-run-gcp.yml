@@ -30,6 +30,7 @@ jobs:
       TF_VAR_domain_api_key: ${{ secrets.DOMAIN_API_KEY }}
       TF_VAR_allowlist_cidr: ${{ secrets.ALLOWLIST_CIDR }}
       TF_VAR_root_domain: ${{ secrets.ROOT_DOMAIN }}
+      TF_VAR_letsencrypt_email: ${{ secrets.LETSENCRYPT_EMAIL }}
 
     steps:
       - uses: actions/checkout@v4

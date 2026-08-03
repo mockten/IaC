@@ -44,6 +44,11 @@ variable "root_domain" {
   type        = string
 }
 
+variable "letsencrypt_email" {
+  description = "ACME account email for Let's Encrypt expiry notices. TF_VAR_letsencrypt_email ← LETSENCRYPT_EMAIL."
+  type        = string
+}
+
 variable "domain_api_base_url" {
   description = "DigitalPlat domain API base. Nameserver push targets {base}/domains/{domain}/nameservers."
   type        = string
@@ -123,3 +128,8 @@ locals {
   ]
 }
 
+variable "acme_staging" {
+  description = "Use Let's Encrypt staging for TLS. Set true while iterating (rebuilds burn the production rate limit: 5 per identifier set per 168h), false for a demonstrable run. TF_VAR_acme_staging ← ACME_STAGING."
+  type        = bool
+  default     = false
+}

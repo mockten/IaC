@@ -2,9 +2,8 @@ variable "project" {
   type = string
 }
 
-variable "global_ip_name" {
-  description = "Name of the reserved global external IP the gce Ingress binds the Application LB to."
-  type        = string
+variable "ingress_ip" {
+  type = string
 }
 
 variable "allowlist_cidr" {
@@ -12,7 +11,20 @@ variable "allowlist_cidr" {
 }
 
 variable "egress_cidr" {
-  description = "The cluster's Cloud NAT egress IP as a /32, allowlisted in Cloud Armor alongside allowlist_cidr so the dashboard's in-cluster HTTPS self-check (pod → public URL) is not blocked."
+  description = "The cluster's Cloud NAT egress IP as a /32, allowlisted on the ingress LB alongside allowlist_cidr so in-cluster health checks (dashboard → public URL) aren't blocked by loadBalancerSourceRanges."
+  type        = string
+}
+
+variable "letsencrypt_email" {
+  type = string
+}
+
+variable "workload_identity_pool" {
+  type = string
+}
+
+variable "dns_zone_name" {
+  description = "Cloud DNS managed-zone name the ACME DNS-01 solver writes challenge TXT records into."
   type        = string
 }
 
@@ -27,4 +39,10 @@ variable "host_admin" {
 }
 variable "host_dashboard" {
   type = string
+}
+
+variable "acme_staging" {
+  description = "Issue certificates from Let's Encrypt's staging CA. Untrusted by browsers, but effectively unmetered — use it while iterating so rebuilds do not burn the production limit of 5 certs per identifier set per 168h."
+  type        = bool
+  default     = false
 }

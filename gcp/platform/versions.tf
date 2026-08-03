@@ -1,10 +1,10 @@
 terraform {
   required_providers {
-    google = {
-      source = "hashicorp/google"
-    }
     kubectl = {
       source = "gavinbunney/kubectl"
+    }
+    helm = {
+      source = "hashicorp/helm"
     }
     kubernetes = {
       source = "hashicorp/kubernetes"
