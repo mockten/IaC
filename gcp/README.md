@@ -1,8 +1,12 @@
 # Mockten on GKE
 
-Deploys the full mockten platform to a **regional GKE Autopilot** cluster with
+Deploys the full mockten platform to a **zonal GKE Standard** cluster with
 HTTPS on `example.dpdns.org`, locked to a single source IP, and Cloud DNS
-delegated to the DigitalPlat registrar automatically.
+delegated to the DigitalPlat registrar automatically. The ingress is
+**cloud-native** — Google's own external Application Load Balancer via the GKE
+(gce) Ingress, with Cloud CDN, a Google-managed TLS certificate, and Cloud Armor
+for the IP allowlist — mirroring the `aws/` (ALB + CloudFront) and `azure/`
+(App Gateway) decisions rather than the old ingress-nginx + cert-manager model.
 
 This is the same `common/k8s` workloads that `local/` deploys — only the
 environment layer (cluster, network, ingress, DNS, TLS) differs. See
@@ -14,8 +18,10 @@ environment layer (cluster, network, ingress, DNS, TLS) differs. See
 |---|---|
 | Network | custom VPC + subnet (secondary ranges for pods/services) + **Cloud NAT** (private nodes need it to pull ghcr images) |
 | Cluster | GKE **Standard**, zonal, small node pool, private nodes, public control-plane endpoint locked to `allowlist_cidr` |
-| Ingress | nginx-ingress, pinned to a reserved regional IP, L4 firewall narrowed to `allowlist_cidr` via `loadBalancerSourceRanges` |
-| TLS | cert-manager, Let's Encrypt **DNS-01** over Cloud DNS (via Workload Identity) — issues with no inbound 80/443, so it works behind the IP lock |
+| Ingress | **GKE (gce) Ingress → external Application Load Balancer**, cloud-native like `aws/` (ALB) and `azure/` (App Gateway) — not nginx. Binds a reserved **global** static IP |
+| CDN | **Cloud CDN** on the storefront backend (a `BackendConfig` flag — no separate CloudFront/Front Door layer) |
+| TLS | **Google-managed certificate** (`ManagedCertificate`), auto-issued and auto-renewed once DNS + LB propagate — no cert-manager, and **no Let's Encrypt 5-per-week limit** |
+| IP allowlist | **Cloud Armor** policy: allow `allowlist_cidr` + the cluster's Cloud NAT egress `/32`, default-deny (the counterpart to `aws/`'s WAF IP set and `azure/`'s NSG) |
 | DNS | Cloud DNS zone + A records for the 4 hosts; nameservers **pushed to the registrar automatically** (terracurl) |
 | Workloads | `module.common_k8s` — the 21 mockten services, unchanged |
 
@@ -82,8 +88,9 @@ gcloud iam service-accounts keys create deployer-key.json \
 #    *-key.json in .gitignore, so it is never committed — keep it that way.
 ```
 
-Nothing else is created by hand — the cert-manager Workload Identity service
-account, IAM bindings, DNS zone, and all cluster resources are Terraform-managed.
+Nothing else is created by hand — the Cloud Armor policy, the global ingress IP,
+the DNS zone, and all cluster resources are Terraform-managed; TLS is a Google-
+managed certificate (no ACME account or Workload Identity SA to provision).
 
 ## Configuration
 
@@ -133,9 +140,10 @@ terraform apply
 ```
 
 One `terraform apply` from an empty state builds everything — network, cluster,
-node pool, ingress, cert-manager, DNS + delegation, and all 21 workloads (78
-resources, ~20 min). No `-target` phases and no manual steps, so it drops
-straight into a CD pipeline.
+node pool, the GKE Ingress + Cloud Armor + managed cert, DNS + delegation, and
+all 21 workloads. No `-target` phases and no manual steps, so it drops straight
+into a CD pipeline. The Google-managed certificate goes Active a while after the
+run finishes (once DNS + the LB propagate) — with no rate limit to exhaust.
 
 After apply:
 
