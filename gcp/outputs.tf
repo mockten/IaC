@@ -1,6 +1,6 @@
 output "ingress_ip" {
   description = "The IP the four A records point at; the only IP the LB firewall admits."
-  value       = google_compute_address.ingress.address
+  value       = google_compute_global_address.ingress.address
 }
 
 output "name_servers" {

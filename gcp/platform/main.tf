@@ -1,127 +1,146 @@
-# In-cluster ingress + TLS. Kept deliberately parallel to local/k8s (nginx-ingress),
-# so the same model carries to Azure/AWS: only the LB IP, the IP allowlist and the
-# DNS-01 solver are cloud-specific.
+# GCP cloud-native ingress data plane — the counterpart to aws/platform (ALB via
+# the AWS Load Balancer Controller) and azure/appgw (App Gateway via AGIC). Unlike
+# the old gcp/ (ingress-nginx + cert-manager), this uses Google's OWN load balancer:
+# the GKE Ingress (gce) controller provisions an external Application Load Balancer,
+# TLS is a Google-managed certificate (no cert-manager, no Let's Encrypt rate
+# limit), the CDN is Cloud CDN (a flag on the backend), and the IP allowlist is
+# Cloud Armor. The Ingress itself lives in ./ingress.tf.
+#
+# BackendConfig/FrontendConfig/ManagedCertificate are GKE CRDs, so they are applied
+# with kubectl_manifest (no plan-time CRD check, like the old ClusterIssuer was).
 
-# ── nginx-ingress controller ─────────────────────────────────────────────────
-# Pinned to the reserved regional IP, and the L4 LB firewall is narrowed to the
-# home IP via loadBalancerSourceRanges (network-level, not just an nginx 403).
-resource "helm_release" "ingress_nginx" {
-  name             = "ingress-nginx"
-  repository       = "https://kubernetes.github.io/ingress-nginx"
-  chart            = "ingress-nginx"
-  version          = "4.11.3"
-  namespace        = "ingress-nginx"
-  create_namespace = true
-
-  values = [yamlencode({
-    controller = {
-      service = {
-        loadBalancerIP           = var.ingress_ip
-        loadBalancerSourceRanges = concat([for c in split(",", var.allowlist_cidr) : trimspace(c)], [var.egress_cidr])
-        externalTrafficPolicy    = "Local"
-      }
-    }
-  })]
-}
-
-# ── cert-manager + Workload Identity for the DNS-01 solver ───────────────────
-resource "google_service_account" "certmgr" {
-  account_id   = "cert-manager-dns01"
-  display_name = "cert-manager DNS-01 solver"
-  project      = var.project
-}
-
-# Narrowest role that still lets the ACME solver write/cleanup _acme-challenge TXT.
-resource "google_project_iam_member" "certmgr_dns" {
+# ── Cloud Armor: allow only the operator IP(s) + the cluster egress ──────────
+# The counterpart to aws/'s WAF IP set and azure/'s NSG. default_rule denies; the
+# allow rule admits ALLOWLIST_CIDR plus the cluster's Cloud NAT egress /32 (so the
+# dashboard's in-cluster self-probe of the public HTTPS URL is not blocked — the
+# same reason aws/ allowlists its NAT IP and azure/ its AKS egress IP).
+resource "google_compute_security_policy" "allow" {
+  name    = "mockten-allow"
   project = var.project
-  role    = "roles/dns.admin"
-  member  = "serviceAccount:${google_service_account.certmgr.email}"
-}
 
-# Let the cert-manager KSA impersonate the GCP SA (Workload Identity).
-resource "google_service_account_iam_member" "certmgr_wi" {
-  service_account_id = google_service_account.certmgr.name
-  role               = "roles/iam.workloadIdentityUser"
-  member             = "serviceAccount:${var.workload_identity_pool}[cert-manager/cert-manager]"
-}
-
-resource "helm_release" "cert_manager" {
-  name             = "cert-manager"
-  repository       = "https://charts.jetstack.io"
-  chart            = "cert-manager"
-  version          = "v1.16.2"
-  namespace        = "cert-manager"
-  create_namespace = true
-
-  values = [yamlencode({
-    crds = { enabled = true }
-    serviceAccount = {
-      annotations = {
-        "iam.gke.io/gcp-service-account" = google_service_account.certmgr.email
+  rule {
+    action   = "allow"
+    priority = 1000
+    match {
+      versioned_expr = "SRC_IPS_V1"
+      config {
+        src_ip_ranges = concat(
+          [for c in split(",", var.allowlist_cidr) : trimspace(c)],
+          [var.egress_cidr],
+        )
       }
     }
-    # By default cert-manager verifies DNS-01 propagation by querying the
-    # domain's authoritative nameservers directly. For a dpdns.org subdomain the
-    # parent's servers answer SERVFAIL / time out from inside the cluster
-    # ("dial tcp 142.171.123.133:53: i/o timeout"), so the challenge never
-    # self-checks even though the TXT record is correctly published in Cloud DNS.
-    # Check via public recursive resolvers instead.
-    extraArgs = [
-      "--dns01-recursive-nameservers=8.8.8.8:53,1.1.1.1:53",
-      "--dns01-recursive-nameservers-only",
-    ]
-  })]
+    description = "Allow the operator allowlist and the cluster egress IP."
+  }
+
+  rule {
+    action   = "deny(403)"
+    priority = 2147483647
+    match {
+      versioned_expr = "SRC_IPS_V1"
+      config { src_ip_ranges = ["*"] }
+    }
+    description = "Default deny."
+  }
 }
 
-# ── ACME ClusterIssuer (Let's Encrypt, DNS-01 over Cloud DNS) ────────────────
-# DNS-01 proves control via a TXT record, so no inbound 80/443 is needed — it
-# issues fine behind the IP lock. kubectl_manifest (not kubernetes_manifest) so
-# the CR applies without a plan-time CRD check.
-resource "kubectl_manifest" "cluster_issuer" {
-  depends_on = [helm_release.cert_manager]
+# ── TLS: one Google-managed certificate covering all four hosts ──────────────
+# Google provisions and auto-renews it once the hosts resolve to the LB IP. No
+# cert-manager, and no Let's Encrypt 5-per-week limit — the exact trap that broke
+# rebuilds on 2026-07-20 (see the old platform/main.tf) simply does not exist here.
+# First issuance waits on DNS + LB propagation (~10-30 min) but is never rate-limited.
+resource "kubectl_manifest" "managed_cert" {
   yaml_body = yamlencode({
-    apiVersion = "cert-manager.io/v1"
-    kind       = "ClusterIssuer"
-    metadata   = { name = "letsencrypt" }
+    apiVersion = "networking.gke.io/v1"
+    kind       = "ManagedCertificate"
+    metadata = {
+      name      = "mockten-cert"
+      namespace = "default"
+    }
     spec = {
-      acme = {
-        # Let's Encrypt allows 5 certificates per exact set of identifiers per
-        # 168h. This stack tears down and rebuilds whole, and each rebuild asks
-        # for the same four hostnames, so five rebuilds in a week exhaust the
-        # quota and every Order fails with 429 — which looks like a DNS or
-        # cert-manager fault but is neither. That happened on 2026-07-20.
-        #
-        # Iterate on staging (effectively unlimited, but the CA is untrusted so
-        # browsers warn), and switch to production for the run that has to be
-        # demonstrable.
-        server = var.acme_staging ? (
-          "https://acme-staging-v02.api.letsencrypt.org/directory"
-          ) : (
-          "https://acme-v02.api.letsencrypt.org/directory"
-        )
-        email = var.letsencrypt_email
-        # Separate account keys per environment: an account registered against
-        # staging is not valid against production, so reusing one secret across
-        # a switch fails to register.
-        privateKeySecretRef = {
-          name = var.acme_staging ? "letsencrypt-account-key-staging" : "letsencrypt-account-key"
-        }
-        solvers = [{
-          dns01 = {
-            cloudDNS = {
-              project = var.project
-              # hostedZoneName is REQUIRED here, not optional. Without it
-              # cert-manager auto-detects the zone by walking up to the
-              # registrable domain — for example.dpdns.org that lands on
-              # "dpdns.org" (since .org is the public suffix), and it fails with
-              # "No matching GoogleCloud domain found for domain dpdns.org."
-              # because the zone we own is example.dpdns.org. Naming the zone
-              # explicitly skips that detection.
-              hostedZoneName = var.dns_zone_name
-            }
-          }
-        }]
+      domains = [var.host_store, var.host_sales, var.host_admin, var.host_dashboard]
+    }
+  })
+}
+
+# ── FrontendConfig: redirect HTTP→HTTPS at the LB ────────────────────────────
+resource "kubectl_manifest" "frontend_config" {
+  yaml_body = yamlencode({
+    apiVersion = "networking.gke.io/v1beta1"
+    kind       = "FrontendConfig"
+    metadata = {
+      name      = "mockten-fe"
+      namespace = "default"
+    }
+    spec = {
+      redirectToHttps = { enabled = true }
+    }
+  })
+}
+
+# ── BackendConfig per backend service: Cloud CDN + Cloud Armor + health check ─
+# GKE creates one LB backend service per k8s Service referenced by the Ingress, and
+# attaches the BackendConfig named by the Service's cloud.google.com/backend-config
+# annotation (patched on below). Each backend gets the Cloud Armor policy and — for
+# the cacheable storefront — Cloud CDN.
+#
+# HEALTH CHECK: unlike aws/ (ALB success-codes = 200-499) and azure/ (App Gateway
+# health-probe-status-codes = 200-499), a GKE health check only treats HTTP 200 as
+# healthy — there is no success-code range. So each backend must be probed on a path
+# that returns 200, or its LB backend goes UNHEALTHY and that route 502s. The paths
+# below are the first-deploy tuning point: verify each against the running service
+# (kubectl exec ... curl) and adjust. `/` is correct only for services that 200 there.
+locals {
+  # name -> { k8s service, serving port, health path (must return 200), enable CDN }
+  backends = {
+    ecfront   = { service = "ecfront-service", port = 80, health = "/", cdn = true }
+    apigw     = { service = "apigw-service", port = 80, health = "/", cdn = false }
+    uam       = { service = "uam-service", port = 80, health = "/realms/mockten-realm-dev/", cdn = false }
+    backdoor  = { service = "backdoor-service", port = 8080, health = "/", cdn = false }
+    dashboard = { service = "dashboard-service", port = 3001, health = "/", cdn = false }
+  }
+}
+
+resource "kubectl_manifest" "backend_config" {
+  for_each = local.backends
+
+  yaml_body = yamlencode({
+    apiVersion = "cloud.google.com/v1"
+    kind       = "BackendConfig"
+    metadata = {
+      name      = "bc-${each.key}"
+      namespace = "default"
+    }
+    spec = {
+      securityPolicy = { name = google_compute_security_policy.allow.name }
+      cdn            = { enabled = each.value.cdn }
+      healthCheck = {
+        type        = "HTTP"
+        port        = each.value.port
+        requestPath = each.value.health
       }
     }
   })
+}
+
+# Attach each BackendConfig to its Service without editing the shared common/k8s
+# module: patch the annotations onto the existing Services. cloud.google.com/neg
+# opts the ClusterIP Service into container-native (NEG) load balancing, which the
+# gce Ingress needs on a VPC-native cluster.
+resource "kubernetes_annotations" "backend" {
+  for_each = local.backends
+
+  api_version = "v1"
+  kind        = "Service"
+  metadata {
+    name      = each.value.service
+    namespace = "default"
+  }
+  annotations = {
+    "cloud.google.com/backend-config" = jsonencode({ default = "bc-${each.key}" })
+    "cloud.google.com/neg"            = jsonencode({ ingress = true })
+  }
+  force = true
+
+  depends_on = [kubectl_manifest.backend_config]
 }
