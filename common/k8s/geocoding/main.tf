@@ -53,7 +53,7 @@ resource "kubernetes_deployment" "geocoding" {
         }
         container {
           name  = "geocoding"
-          image = "ghcr.io/mockten/geocoding:latest"
+          image = "ghcr.io/mockten/geocoding:${var.image_tag}"
           env {
             name  = "GOGC"
             value = "30"

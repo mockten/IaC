@@ -22,7 +22,7 @@ resource "kubernetes_deployment" "ranking" {
         }
         container {
           name  = "ranking"
-          image = "ghcr.io/mockten/ranking:latest"
+          image = "ghcr.io/mockten/ranking:${var.image_tag}"
           port {
             container_port = 8080
           }

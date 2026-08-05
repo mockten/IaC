@@ -22,7 +22,7 @@ resource "kubernetes_deployment" "shipment" {
         }
         container {
           name  = "shipment"
-          image = "ghcr.io/mockten/shipment:latest"
+          image = "ghcr.io/mockten/shipment:${var.image_tag}"
           env {
             name  = "TEST_MODE"
             value = "true"

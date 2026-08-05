@@ -22,7 +22,7 @@ resource "kubernetes_deployment" "recommendation" {
         }
         container {
           name  = "recommendation"
-          image = "ghcr.io/mockten/recommendation:latest"
+          image = "ghcr.io/mockten/recommendation:${var.image_tag}"
           env {
             name  = "MYSQL_HOST"
             value = "mysql-service.default.svc.cluster.local"

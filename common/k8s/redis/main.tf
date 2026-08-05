@@ -22,7 +22,7 @@ resource "kubernetes_deployment" "redis" {
         }
         container {
           name  = "redis"
-          image = "ghcr.io/mockten/redis:latest"
+          image = "ghcr.io/mockten/redis:${var.image_tag}"
           port {
             container_port = 6379
           }

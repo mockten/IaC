@@ -107,3 +107,9 @@ variable "kc_admin_password" {
   sensitive   = true
   default     = "admin"
 }
+
+variable "image_tag" {
+  description = "Image tag to deploy for this service (e.g. \"1.64\" or \"latest\")."
+  type        = string
+  default     = "latest"
+}

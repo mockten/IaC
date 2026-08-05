@@ -9,3 +9,9 @@ variable "stripe_secret_key" {
   sensitive   = true
   default     = ""
 }
+
+variable "image_tag" {
+  description = "Image tag to deploy for this service (e.g. \"1.64\" or \"latest\")."
+  type        = string
+  default     = "latest"
+}

@@ -64,7 +64,7 @@ resource "kubernetes_deployment" "airflow_webserver" {
         # minutes. So migrate exactly once here and skip entrypoint.sh below.
         init_container {
           name  = "airflow-db-init"
-          image = "ghcr.io/mockten/airflow:latest"
+          image = "ghcr.io/mockten/airflow:${var.image_tag}"
           command = ["/bin/bash", "-c", <<-EOT
             until airflow db check 2>/dev/null; do
               echo "Waiting for Airflow DB..."
@@ -87,7 +87,7 @@ resource "kubernetes_deployment" "airflow_webserver" {
         }
         container {
           name    = "airflow-webserver"
-          image   = "ghcr.io/mockten/airflow:latest"
+          image   = "ghcr.io/mockten/airflow:${var.image_tag}"
           command = ["airflow", "webserver"]
           port {
             container_port = 8080
@@ -141,7 +141,7 @@ resource "kubernetes_deployment" "airflow_scheduler" {
         # half-migrated schema.
         init_container {
           name    = "wait-for-migrations"
-          image   = "ghcr.io/mockten/airflow:latest"
+          image   = "ghcr.io/mockten/airflow:${var.image_tag}"
           command = ["/bin/bash", "-c", "airflow db check-migrations -t 300"]
           dynamic "env" {
             for_each = local.scheduler_env
@@ -153,7 +153,7 @@ resource "kubernetes_deployment" "airflow_scheduler" {
         }
         container {
           name    = "airflow-scheduler"
-          image   = "ghcr.io/mockten/airflow:latest"
+          image   = "ghcr.io/mockten/airflow:${var.image_tag}"
           command = ["airflow", "scheduler"]
           dynamic "env" {
             for_each = local.scheduler_env

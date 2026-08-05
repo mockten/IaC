@@ -22,7 +22,7 @@ resource "kubernetes_deployment" "product" {
         }
         container {
           name  = "product"
-          image = "ghcr.io/mockten/product:latest"
+          image = "ghcr.io/mockten/product:${var.image_tag}"
           port {
             container_port = 50051
           }

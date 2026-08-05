@@ -22,7 +22,7 @@ resource "kubernetes_deployment" "sync" {
         }
         container {
           name  = "sync"
-          image = "ghcr.io/mockten/sync:latest"
+          image = "ghcr.io/mockten/sync:${var.image_tag}"
         }
       }
     }

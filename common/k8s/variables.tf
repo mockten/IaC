@@ -188,3 +188,9 @@ variable "dashboard_session_secret" {
   sensitive   = true
   default     = ""
 }
+
+variable "app_version" {
+  description = "mockten image version to deploy. Empty = follow the latest GitHub Release; set (e.g. \"1.64\") to pin or roll back."
+  type        = string
+  default     = ""
+}

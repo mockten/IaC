@@ -35,7 +35,7 @@ resource "kubernetes_deployment" "ecpay" {
         }
         container {
           name  = "ecpay"
-          image = "ghcr.io/mockten/ecpay:latest"
+          image = "ghcr.io/mockten/ecpay:${var.image_tag}"
           env_from {
             secret_ref {
               name = kubernetes_secret.stripe.metadata[0].name

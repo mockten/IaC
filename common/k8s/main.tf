@@ -62,8 +62,28 @@ resource "kubernetes_secret" "ghcr" {
   }
 }
 
+# Resolve which mockten image version to deploy. Empty app_version (the default)
+# auto-follows the newest published GitHub Release of mockten/mockten — the same
+# 1.<run_number> tag the RELEASE workflow bakes into the images — so a deploy
+# always lands the latest release. Set app_version to pin or roll back. The
+# release lookup only runs when nothing is pinned, and reuses github_token so it
+# works whether the repo is public or private.
+data "http" "mockten_release" {
+  count = var.app_version == "" ? 1 : 0
+  url   = "https://api.github.com/repos/mockten/mockten/releases/latest"
+  request_headers = {
+    Accept        = "application/vnd.github+json"
+    Authorization = "Bearer ${var.github_token}"
+  }
+}
+
+locals {
+  mockten_image_tag = var.app_version != "" ? var.app_version : trimspace(jsondecode(data.http.mockten_release[0].response_body).tag_name)
+}
+
 module "ecfront" {
   source             = "./ecfront"
+  image_tag          = local.mockten_image_tag
   secret_name        = kubernetes_secret.ghcr.metadata[0].name
   stripe_public_key  = var.stripe_public_key
   mockten_mode       = var.mockten_mode
@@ -72,6 +92,7 @@ module "ecfront" {
 
 module "uam" {
   source                 = "./uam"
+  image_tag              = local.mockten_image_tag
   secret_name            = kubernetes_secret.ghcr.metadata[0].name
   google_client_id       = var.google_client_id
   google_client_secret   = var.google_client_secret
@@ -93,79 +114,94 @@ module "uam" {
 
 module "apigw" {
   source      = "./apigw"
+  image_tag   = local.mockten_image_tag
   secret_name = kubernetes_secret.ghcr.metadata[0].name
 }
 
 module "minio" {
   source        = "./minio"
+  image_tag     = local.mockten_image_tag
   secret_name   = kubernetes_secret.ghcr.metadata[0].name
   storage_class = var.storage_class
 }
 
 module "meilisearch" {
   source      = "./meilisearch"
+  image_tag   = local.mockten_image_tag
   secret_name = kubernetes_secret.ghcr.metadata[0].name
 }
 
 module "mysql" {
   source        = "./mysql"
+  image_tag     = local.mockten_image_tag
   secret_name   = kubernetes_secret.ghcr.metadata[0].name
   storage_class = var.storage_class
 }
 
 module "searchitem" {
   source      = "./searchitem"
+  image_tag   = local.mockten_image_tag
   secret_name = kubernetes_secret.ghcr.metadata[0].name
 }
 
 module "product" {
   source      = "./product"
+  image_tag   = local.mockten_image_tag
   secret_name = kubernetes_secret.ghcr.metadata[0].name
 }
 
 module "sync" {
   source      = "./sync"
+  image_tag   = local.mockten_image_tag
   secret_name = kubernetes_secret.ghcr.metadata[0].name
 }
 
 module "redis" {
   source      = "./redis"
+  image_tag   = local.mockten_image_tag
   secret_name = kubernetes_secret.ghcr.metadata[0].name
 }
 
 module "cart" {
   source      = "./cart"
+  image_tag   = local.mockten_image_tag
   secret_name = kubernetes_secret.ghcr.metadata[0].name
 }
 
 module "ecpay" {
   source            = "./ecpay"
+  image_tag         = local.mockten_image_tag
   secret_name       = kubernetes_secret.ghcr.metadata[0].name
   stripe_secret_key = var.stripe_secret_key
 }
 
 module "ranking" {
   source      = "./ranking"
+  image_tag   = local.mockten_image_tag
   secret_name = kubernetes_secret.ghcr.metadata[0].name
 }
 
 module "sale" {
   source      = "./sale"
+  image_tag   = local.mockten_image_tag
   secret_name = kubernetes_secret.ghcr.metadata[0].name
 }
 
 module "shipment" {
   source      = "./shipment"
+  image_tag   = local.mockten_image_tag
   secret_name = kubernetes_secret.ghcr.metadata[0].name
 }
 
 module "geocoding" {
   source      = "./geocoding"
+  image_tag   = local.mockten_image_tag
   secret_name = kubernetes_secret.ghcr.metadata[0].name
 }
 
 module "recommendation" {
   source      = "./recommendation"
+  image_tag   = local.mockten_image_tag
   secret_name = kubernetes_secret.ghcr.metadata[0].name
 }
 
@@ -176,12 +212,14 @@ module "backdoor" {
 
 module "airflow" {
   source      = "./airflow"
+  image_tag   = local.mockten_image_tag
   secret_name = kubernetes_secret.ghcr.metadata[0].name
   depends_on  = [module.mysql]
 }
 
 module "dashboard" {
   source                 = "./dashboard"
+  image_tag              = local.mockten_image_tag
   secret_name            = kubernetes_secret.ghcr.metadata[0].name
   mockten_mode           = var.mockten_mode
   public_base_domain     = var.public_base_domain

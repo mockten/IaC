@@ -135,7 +135,7 @@ resource "kubernetes_deployment" "dashboard" {
         }
         container {
           name  = "dashboard"
-          image = "ghcr.io/mockten/dashboard:latest"
+          image = "ghcr.io/mockten/dashboard:${var.image_tag}"
           port {
             container_port = 3001
           }

@@ -39,7 +39,7 @@ resource "kubernetes_stateful_set" "mysql" {
 
         container {
           name  = "mysql"
-          image = "ghcr.io/mockten/mysql:latest"
+          image = "ghcr.io/mockten/mysql:${var.image_tag}"
 
           port {
             container_port = 3306

@@ -66,7 +66,7 @@ resource "kubernetes_deployment" "uam" {
         }
         container {
           name  = "uam"
-          image = "ghcr.io/mockten/uam:latest"
+          image = "ghcr.io/mockten/uam:${var.image_tag}"
           port {
             container_port = 80
           }

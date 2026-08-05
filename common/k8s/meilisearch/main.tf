@@ -22,7 +22,7 @@ resource "kubernetes_deployment" "meilisearch" {
         }
         container {
           name  = "meilisearch"
-          image = "ghcr.io/mockten/meilisearch:latest"
+          image = "ghcr.io/mockten/meilisearch:${var.image_tag}"
           port {
             container_port = 7700
           }

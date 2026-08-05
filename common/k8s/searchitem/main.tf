@@ -22,7 +22,7 @@ resource "kubernetes_deployment" "searchitem" {
         }
         container {
           name  = "searchitem"
-          image = "ghcr.io/mockten/searchitem:latest"
+          image = "ghcr.io/mockten/searchitem:${var.image_tag}"
           port {
             container_port = 50051
           }

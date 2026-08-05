@@ -69,7 +69,7 @@ resource "kubernetes_deployment" "minio" {
         }
         container {
           name  = "minio"
-          image = "ghcr.io/mockten/minio:latest"
+          image = "ghcr.io/mockten/minio:${var.image_tag}"
           port {
             container_port = 9000
           }

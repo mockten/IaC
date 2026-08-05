@@ -22,7 +22,7 @@ resource "kubernetes_deployment" "sale" {
         }
         container {
           name  = "sale"
-          image = "ghcr.io/mockten/sale:latest"
+          image = "ghcr.io/mockten/sale:${var.image_tag}"
           env {
             name  = "MYSQL_DSN"
             value = "mocktenusr:mocktenpassword@tcp(mysql-service.default.svc.cluster.local:3306)/mocktendb?parseTime=true"
