@@ -28,6 +28,16 @@ resource "kubernetes_deployment" "minio" {
   }
   spec {
     replicas = 1
+    # Recreate, not the default RollingUpdate: minio is a single replica backed by
+    # a ReadWriteOnce PVC. A rolling update starts the new pod before the old one
+    # exits, but the new pod can't mount the volume the old pod still holds, so it
+    # stays Pending and the rollout deadlocks ("1 old replicas are pending
+    # termination"). Recreate tears the old pod down first, releasing the claim,
+    # then brings the new one up on the same data. Harmless before image tags
+    # changed on every deploy; required now that they do.
+    strategy {
+      type = "Recreate"
+    }
     selector {
       match_labels = {
         app = "minio"
