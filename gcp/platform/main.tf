@@ -91,20 +91,11 @@ resource "kubectl_manifest" "cluster_issuer" {
         # quota and every Order fails with 429 — which looks like a DNS or
         # cert-manager fault but is neither. That happened on 2026-07-20.
         #
-        # Iterate on staging (effectively unlimited, but the CA is untrusted so
-        # browsers warn), and switch to production for the run that has to be
-        # demonstrable.
-        server = var.acme_staging ? (
-          "https://acme-staging-v02.api.letsencrypt.org/directory"
-          ) : (
-          "https://acme-v02.api.letsencrypt.org/directory"
-        )
-        email = var.letsencrypt_email
-        # Separate account keys per environment: an account registered against
-        # staging is not valid against production, so reusing one secret across
-        # a switch fails to register.
+        # Always production. Mind the 5-per-week limit above when rebuilding.
+        server = "https://acme-v02.api.letsencrypt.org/directory"
+        email  = var.letsencrypt_email
         privateKeySecretRef = {
-          name = var.acme_staging ? "letsencrypt-account-key-staging" : "letsencrypt-account-key"
+          name = "letsencrypt-account-key"
         }
         solvers = [{
           dns01 = {

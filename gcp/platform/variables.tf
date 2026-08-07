@@ -41,8 +41,3 @@ variable "host_dashboard" {
   type = string
 }
 
-variable "acme_staging" {
-  description = "Issue certificates from Let's Encrypt's staging CA. Untrusted by browsers, but effectively unmetered — use it while iterating so rebuilds do not burn the production limit of 5 certs per identifier set per 168h."
-  type        = bool
-  default     = false
-}

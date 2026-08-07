@@ -25,12 +25,6 @@ variable "letsencrypt_email" {
   type        = string
 }
 
-variable "acme_staging" {
-  description = "Issue from Let's Encrypt staging while iterating (production allows only 5 certs per identifier set per 168h)."
-  type        = bool
-  default     = false
-}
-
 variable "domain_api_base_url" {
   type    = string
   default = "https://domain-api.digitalplat.org/api/v1"

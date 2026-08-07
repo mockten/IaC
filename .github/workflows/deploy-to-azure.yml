@@ -16,11 +16,6 @@ name: Azure 2.Deploy
 
 on:
   workflow_dispatch:
-    inputs:
-      acme_staging:
-        description: "Issue TLS from Let's Encrypt STAGING (browsers warn, but the rate limit is effectively unmetered). Use while iterating."
-        type: boolean
-        default: false
 
 jobs:
   deploy:
@@ -44,7 +39,6 @@ jobs:
       TF_VAR_allowlist_cidr: ${{ secrets.ALLOWLIST_CIDR }}
       TF_VAR_root_domain: ${{ secrets.ROOT_DOMAIN }}
       TF_VAR_letsencrypt_email: ${{ secrets.LETSENCRYPT_EMAIL }}
-      TF_VAR_acme_staging: ${{ inputs.acme_staging }}
 
     steps:
       - uses: actions/checkout@v4

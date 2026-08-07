@@ -128,8 +128,3 @@ locals {
   ]
 }
 
-variable "acme_staging" {
-  description = "Use Let's Encrypt staging for TLS. Set true while iterating (rebuilds burn the production rate limit: 5 per identifier set per 168h), false for a demonstrable run. TF_VAR_acme_staging ← ACME_STAGING."
-  type        = bool
-  default     = false
-}

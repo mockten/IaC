@@ -117,7 +117,6 @@ module "platform" {
   kubelet_client_id   = module.aks.kubelet_client_id
   subscription_id     = data.azurerm_client_config.current.subscription_id
   letsencrypt_email   = var.letsencrypt_email
-  acme_staging        = var.acme_staging
 }
 
 # The portable workloads — the same module GKE/EKS deploy.

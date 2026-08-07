@@ -23,11 +23,6 @@ name: GCP 2.Deploy
 
 on:
   workflow_dispatch:
-    inputs:
-      acme_staging:
-        description: "Issue TLS from Let's Encrypt STAGING (browsers warn, but the rate limit is effectively unmetered). Use while iterating."
-        type: boolean
-        default: false
 
 jobs:
   deploy:
@@ -49,7 +44,6 @@ jobs:
       TF_VAR_allowlist_cidr: ${{ secrets.ALLOWLIST_CIDR }}
       TF_VAR_root_domain: ${{ secrets.ROOT_DOMAIN }}
       TF_VAR_letsencrypt_email: ${{ secrets.LETSENCRYPT_EMAIL }}
-      TF_VAR_acme_staging: ${{ inputs.acme_staging }}
 
     steps:
       - uses: actions/checkout@v4
@@ -149,7 +143,7 @@ jobs:
             echo '```'
             terraform output -json hosts | python3 -m json.tool
             echo '```'
-            echo "TLS: ${{ inputs.acme_staging && 'Let''s Encrypt STAGING (browsers will warn)' || 'Let''s Encrypt production' }}"
+            echo "TLS: Let's Encrypt production"
             echo ""
             echo "E2E credentials are in Terraform state, not here:"
             echo '```'

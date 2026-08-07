@@ -58,7 +58,6 @@ module "platform" {
   allowlist_cidr         = var.allowlist_cidr
   egress_cidr            = "${module.nw.nat_ip}/32"
   letsencrypt_email      = var.letsencrypt_email
-  acme_staging           = var.acme_staging
   workload_identity_pool = module.gke.workload_identity_pool
   dns_zone_name          = module.dns.zone_name
   host_store             = local.host_store

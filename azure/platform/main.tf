@@ -48,14 +48,10 @@ resource "kubectl_manifest" "cluster_issuer" {
     metadata   = { name = "letsencrypt" }
     spec = {
       acme = {
-        server = var.acme_staging ? (
-          "https://acme-staging-v02.api.letsencrypt.org/directory"
-          ) : (
-          "https://acme-v02.api.letsencrypt.org/directory"
-        )
-        email = var.letsencrypt_email
+        server = "https://acme-v02.api.letsencrypt.org/directory"
+        email  = var.letsencrypt_email
         privateKeySecretRef = {
-          name = var.acme_staging ? "letsencrypt-account-key-staging" : "letsencrypt-account-key"
+          name = "letsencrypt-account-key"
         }
         solvers = [{
           dns01 = {
