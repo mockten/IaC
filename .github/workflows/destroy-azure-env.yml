@@ -49,6 +49,11 @@ jobs:
 
       - uses: hashicorp/setup-terraform@v3
         with:
+          # No wrapper: the teardown deliberately `|| true`s benign failures (e.g.
+          # `terraform state rm` of an address already gone), but the wrapper would
+          # still surface each as a red "Terraform exited with code 1" annotation.
+          # Real failures still fail the step via its own exit code.
+          terraform_wrapper: false
           terraform_version: 1.9.5
 
       - name: Azure CLI login
@@ -130,3 +135,29 @@ jobs:
                 echo "Deleting orphaned disk ${ID}"
                 az disk delete --ids "${ID}" --yes || true
               done
+
+      # A green destroy meant "Terraform finished", not "nothing is left" — if the
+      # state was empty (e.g. a re-run) Terraform reports "0 destroyed" while real
+      # resources could still be billing. Assert the billable ones are actually gone,
+      # polling because AKS deletion is asynchronous, and fail loudly if any remain.
+      - name: Verify teardown is complete
+        if: always()
+        run: |
+          LEFT="pending"
+          for _ in $(seq 1 12); do
+            LEFT=""
+            K="$(az aks list --query '[].name' -o tsv 2>/dev/null | tr '\n' ' ')"
+            [ -n "${K// /}" ] && LEFT="${LEFT} aks:${K}"
+            G="$(az network application-gateway list --query '[].name' -o tsv 2>/dev/null | tr '\n' ' ')"
+            [ -n "${G// /}" ] && LEFT="${LEFT} appgw:${G}"
+            P="$(az network public-ip list --query '[].name' -o tsv 2>/dev/null | tr '\n' ' ')"
+            [ -n "${P// /}" ] && LEFT="${LEFT} pip:${P}"
+            [ -z "${LEFT// /}" ] && break
+            echo "Still present (async delete may be in progress):${LEFT} — waiting…"
+            sleep 20
+          done
+          if [ -n "${LEFT// /}" ]; then
+            echo "::error::Billable resources still present after teardown:${LEFT}"
+            exit 1
+          fi
+          echo "Teardown verified — no AKS cluster, App Gateway, or public IP remains."

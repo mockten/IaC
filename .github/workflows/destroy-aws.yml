@@ -55,6 +55,11 @@ jobs:
 
       - uses: hashicorp/setup-terraform@v3
         with:
+          # No wrapper: the teardown deliberately `|| true`s benign failures (e.g.
+          # `terraform state rm` of an address already gone), but the wrapper would
+          # still surface each as a red "Terraform exited with code 1" annotation.
+          # Real failures still fail the step via its own exit code.
+          terraform_wrapper: false
           terraform_version: 1.9.5
 
       - name: Terraform init
@@ -180,3 +185,30 @@ jobs:
         working-directory: aws
         run: |
           terraform destroy -auto-approve
+
+      # A green destroy meant "Terraform finished", not "nothing is left" — if the
+      # state was empty (e.g. a re-run) Terraform reports "0 destroyed" while real
+      # resources could still be billing. Assert the billable ones are actually gone,
+      # polling because EKS deletion is asynchronous, and fail loudly if any remain.
+      - name: Verify teardown is complete
+        if: always()
+        run: |
+          R="${TF_VAR_region}"
+          LEFT="pending"
+          for _ in $(seq 1 12); do
+            LEFT=""
+            C="$(aws eks list-clusters --region "$R" --query 'clusters' --output text 2>/dev/null)"
+            [ -n "$C" ] && LEFT="${LEFT} eks:${C}"
+            N="$(aws ec2 describe-nat-gateways --region "$R" --filter Name=state,Values=available,pending --query 'NatGateways[].NatGatewayId' --output text 2>/dev/null)"
+            [ -n "$N" ] && LEFT="${LEFT} nat:${N}"
+            I="$(aws ec2 describe-instances --region "$R" --filters Name=instance-state-name,Values=running,pending Name=tag-key,Values=aws:eks:cluster-name --query 'Reservations[].Instances[].InstanceId' --output text 2>/dev/null)"
+            [ -n "$I" ] && LEFT="${LEFT} ec2:${I}"
+            [ -z "${LEFT// /}" ] && break
+            echo "Still present (async delete may be in progress):${LEFT} — waiting…"
+            sleep 20
+          done
+          if [ -n "${LEFT// /}" ]; then
+            echo "::error::Billable resources still present after teardown:${LEFT}"
+            exit 1
+          fi
+          echo "Teardown verified — no EKS cluster, NAT gateway, or EKS-node instance remains."
