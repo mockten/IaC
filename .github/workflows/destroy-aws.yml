@@ -17,10 +17,6 @@ on:
         description: "Type the AWS account id to confirm destruction"
         required: true
         type: string
-      keep_dns_zone:
-        description: "Keep the Route53 zone + nameserver delegation (avoids re-delegating at the registrar on the next apply)"
-        type: boolean
-        default: false
 
 jobs:
   destroy:
@@ -135,8 +131,7 @@ jobs:
       - name: Terraform destroy — everything except the VPC
         working-directory: aws
         run: |
-          TARGETS="-target=module.cdn -target=module.routing -target=module.platform -target=module.eks"
-          [ "${{ inputs.keep_dns_zone }}" != "true" ] && TARGETS="${TARGETS} -target=module.dns"
+          TARGETS="-target=module.cdn -target=module.routing -target=module.platform -target=module.eks -target=module.dns"
           terraform destroy -auto-approve ${TARGETS}
 
       - name: Delete Load Balancer Controller orphans that block the VPC
@@ -184,8 +179,4 @@ jobs:
         if: always()
         working-directory: aws
         run: |
-          if [ "${{ inputs.keep_dns_zone }}" = "true" ]; then
-            terraform destroy -auto-approve -target=module.nw
-          else
-            terraform destroy -auto-approve
-          fi
+          terraform destroy -auto-approve

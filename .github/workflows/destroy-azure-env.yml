@@ -13,10 +13,6 @@ on:
         description: "Type the Azure subscription id to confirm destruction"
         required: true
         type: string
-      keep_dns_zone:
-        description: "Keep the DNS zone + nameserver delegation (avoids re-delegating at the registrar on the next apply)"
-        type: boolean
-        default: false
 
 jobs:
   destroy:
@@ -112,22 +108,7 @@ jobs:
       - name: Terraform destroy
         working-directory: azure
         run: |
-          if [ "${{ inputs.keep_dns_zone }}" = "true" ]; then
-            # Everything except module.dns (the zone, delegation). Keeping the zone
-            # avoids re-delegating nameservers at the registrar on the next apply.
-            terraform destroy -auto-approve \
-              -target=module.routing \
-              -target=module.platform \
-              -target=module.common_k8s \
-              -target=azurerm_role_assignment.agic_appgw \
-              -target=azurerm_role_assignment.agic_rg_reader \
-              -target=azurerm_role_assignment.agic_subnet_join \
-              -target=module.aks \
-              -target=module.appgw \
-              -target=module.nw
-          else
-            terraform destroy -auto-approve
-          fi
+          terraform destroy -auto-approve
 
       # Belt-and-suspenders billing cleanup. Deleting the AKS cluster normally
       # cascades its managed node resource group (MC_*) and the dynamically-provisioned

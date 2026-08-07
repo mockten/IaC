@@ -14,10 +14,6 @@ on:
         description: "Type the GCP project id to confirm destruction"
         required: true
         type: string
-      keep_dns_zone:
-        description: "Keep the Cloud DNS zone (avoids re-delegating nameservers at the registrar on the next apply)"
-        type: boolean
-        default: false
 
 jobs:
   destroy:
@@ -110,19 +106,7 @@ jobs:
       - name: Terraform destroy
         working-directory: gcp
         run: |
-          if [ "${{ inputs.keep_dns_zone }}" = "true" ]; then
-            # Everything except the zone and its records. Recreating the zone
-            # hands out new nameservers, which must then be re-pushed to the
-            # registrar and propagated before certificates can be issued again.
-            terraform destroy -auto-approve \
-              -target=module.common_k8s \
-              -target=module.platform \
-              -target=module.gke \
-              -target=module.nw \
-              -target=google_compute_address.ingress
-          else
-            terraform destroy -auto-approve
-          fi
+          terraform destroy -auto-approve
 
       # StatefulSet volumeClaimTemplate PVCs are owned by nothing Terraform tracks:
       # the CSI driver provisions the backing PD dynamically, and the PVC retention
