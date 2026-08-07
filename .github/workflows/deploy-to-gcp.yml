@@ -121,6 +121,24 @@ jobs:
           done
           kubectl -n default get certificate || true
           kubectl -n default get pods || true
+          # The seeder fires the recommendation /train once on deploy; if that first
+          # background training doesn't land (a fresh-cluster timing race), the model
+          # stays untrained with no retry. Re-fire it every ~90s until it takes so the
+          # model is deterministically trained here too, not left to timing luck.
+          echo "Ensuring the recommendation model is trained..."
+          for i in $(seq 1 40); do
+            TRAINED="$(kubectl -n default exec deploy/meilisearch-deploy -- \
+              curl -s -m 5 http://recommendation-service.default.svc.cluster.local:8080/model/status 2>/dev/null \
+              | grep -o '"is_trained":[a-z]*' || true)"
+            echo "  model: ${TRAINED:-pending}"
+            echo "${TRAINED}" | grep -q 'true' && break
+            if [ $(( i % 6 )) -eq 0 ]; then
+              echo "  model still pending — re-triggering training..."
+              kubectl -n default exec deploy/meilisearch-deploy -- \
+                curl -s -m 10 -X POST http://recommendation-service.default.svc.cluster.local:8080/train >/dev/null 2>&1 || true
+            fi
+            sleep 15
+          done
 
       - name: Summary
         if: always()

@@ -110,12 +110,24 @@ jobs:
           kubectl -n default wait --for=condition=Ready pods --all --timeout=420s || true
           echo "Waiting for the recommendation model to finish training..."
           TRAINED="unknown"
-          for _ in $(seq 1 40); do
+          for i in $(seq 1 40); do
             TRAINED="$(kubectl -n default exec deploy/meilisearch-deploy -- \
               curl -s -m 5 http://recommendation-service.default.svc.cluster.local:8080/model/status 2>/dev/null \
               | grep -o '"is_trained":[a-z]*' || true)"
             echo "  model: ${TRAINED:-pending}"
             echo "${TRAINED}" | grep -q 'true' && break
+            # The seeder fires /train once on deploy. If that first background
+            # training doesn't land — a fresh-cluster timing race where a dependency
+            # (e.g. MinIO still ingesting the seed photos) isn't ready when the
+            # trigger hits — the model stays untrained forever, with no retry, and
+            # READY sticks at PENDING. Re-fire the trigger every ~90s until it takes;
+            # retraining is idempotent, and the service ignores it while a run is in
+            # progress.
+            if [ $(( i % 6 )) -eq 0 ]; then
+              echo "  model still pending — re-triggering training..."
+              kubectl -n default exec deploy/meilisearch-deploy -- \
+                curl -s -m 10 -X POST http://recommendation-service.default.svc.cluster.local:8080/train >/dev/null 2>&1 || true
+            fi
             sleep 15
           done
           {
