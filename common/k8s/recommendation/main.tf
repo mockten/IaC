@@ -92,10 +92,13 @@ resource "kubernetes_cron_job_v1" "recommendation_retrain" {
     namespace = "default"
   }
   spec {
-    schedule                      = "0 * * * *" # top of every hour
-    concurrency_policy            = "Forbid"    # never overlap runs
-    starting_deadline_seconds     = 120
-    successful_jobs_history_limit = 1
+    schedule                  = "0 * * * *" # top of every hour
+    concurrency_policy        = "Forbid"    # never overlap runs
+    starting_deadline_seconds = 120
+    # Keep no successful runs — a completed trigger has nothing worth inspecting, so
+    # the controller deletes it immediately instead of leaving an "Exited" entry
+    # lingering in the Container List. Failures are retained so they stay noticeable.
+    successful_jobs_history_limit = 0
     failed_jobs_history_limit     = 1
     job_template {
       metadata {}
