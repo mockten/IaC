@@ -33,6 +33,8 @@ run it again and it continues from where it stopped.
 | IP allowlist | **WAFv2** (us-east-1) IP set on CloudFront: allow `allowlist_cidr` + the NAT egress IP, default-block |
 | DNS | Route53 hosted zone + A records **aliasing CloudFront**; nameservers **pushed to the registrar automatically** (terracurl) |
 | Workloads | `module.common_k8s` — the 21 mockten services, the same module GKE and AKS deploy |
+<img width="1632" height="1142" alt="CleanShot 2026-08-11 at 15 57 36@2x" src="https://github.com/user-attachments/assets/6f0d2610-25f5-4185-b9e8-b9cdd0598a57" />
+
 
 ## Prerequisites (one-time, per fresh clone / account)
 
