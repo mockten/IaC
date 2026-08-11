@@ -38,6 +38,9 @@ run it again and it continues from where it stopped.
 | DNS | Azure DNS zone + A records → the App Gateway public IP; nameservers **pushed to the registrar automatically** (terracurl) |
 | Workloads | `module.common_k8s` — the 21 mockten services, the same module GKE and EKS deploy |
 
+<img width="1422" height="1014" alt="CleanShot 2026-08-11 at 16 09 39@2x" src="https://github.com/user-attachments/assets/2c4fef00-4f68-47a5-ad3e-13f25db003f2" />
+
+
 ## Prerequisites (one-time, per fresh clone / subscription)
 
 Run these once with the Azure CLI before the first `terraform init`.
