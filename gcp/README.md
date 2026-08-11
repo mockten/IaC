@@ -19,6 +19,9 @@ environment layer (cluster, network, ingress, DNS, TLS) differs. See
 | DNS | Cloud DNS zone + A records for the 4 hosts; nameservers **pushed to the registrar automatically** (terracurl) |
 | Workloads | `module.common_k8s` — the 21 mockten services, unchanged |
 
+<img width="1640" height="1152" alt="CleanShot 2026-08-11 at 16 00 07@2x" src="https://github.com/user-attachments/assets/64252eb0-737f-409a-9330-af900f30d9c3" />
+
+
 **Why Standard, not Autopilot:** Autopilot injects a 0.5 vCPU / 2 GiB request
 into every pod that doesn't declare one. For mockten's ~21 small services that
 balloons to ~10 vCPU / ~42 GiB, blowing past the namespace ResourceQuota and a
