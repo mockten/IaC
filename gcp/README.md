@@ -1,12 +1,12 @@
 # Mockten on GKE
 
-Deploys the full mockten platform to a **regional GKE Autopilot** cluster with
-HTTPS on `example.dpdns.org`, locked to a single source IP, and Cloud DNS
+Deploys the full mockten platform to a **zonal GKE Standard** cluster with
+HTTPS on your own domain, restricted to an allowlisted source IP, and Cloud DNS
 delegated to the DigitalPlat registrar automatically.
 
 This is the same `common/k8s` workloads that `local/` deploys — only the
 environment layer (cluster, network, ingress, DNS, TLS) differs. See
-`../MOCKTEN_REQUESTS.md` history and `local/` for the docker-desktop counterpart.
+[`local/`](../local) for the docker-desktop counterpart.
 
 ## Architecture
 
@@ -100,7 +100,7 @@ GitHub secrets. Required variables:
 | `google_client_id` / `google_client_secret` / `facebook_*` | Keycloak SSO |
 | `stripe_secret_key` / `stripe_public_key` | payments |
 | `domain_api_key` | DigitalPlat bearer token (`dp_live_...`) |
-| `allowlist_cidr` | the one IP allowed at the ingress + control plane (default = home IP) |
+| `allowlist_cidr` | CIDR(s) allowed at the ingress + control plane — your own source IP; comma-separated for several people |
 
 ## GitHub Actions secrets
 
@@ -152,10 +152,14 @@ To talk to the cluster afterwards:
 `gcloud container clusters get-credentials mockten-gke --zone us-east1-b`
 (re-run this after any destroy/apply — the endpoint changes).
 
-### Verified parity
+### Verifying the deployment
 
-`PLAYWRIGHT_BASE_URL=https://example.dpdns.org npx playwright test` from the
-mockten repo gives **55 passed / 0 failed / 4 skipped** — the same as local.
+Run the mockten repo's Playwright suite against the deployed host to confirm the
+cloud deployment behaves like a local one:
+
+```sh
+PLAYWRIGHT_BASE_URL=https://<your-domain> npx playwright test
+```
 
 ## Teardown
 
@@ -169,8 +173,8 @@ release the domain manually if desired).
 
 ## GKE / free-tier gotchas
 
-A fresh project is constrained; these traps each cost real time — do not
-re-introduce them:
+A fresh project is constrained. Each of the settings below works around a
+specific failure mode, so they are worth keeping as they are:
 
 - **GKE Standard, not Autopilot.** Autopilot injects a 0.5 vCPU / 2 GiB request
   into every pod that declares none; for ~21 tiny services that exceeds the

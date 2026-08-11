@@ -22,9 +22,6 @@ reads all-READY. It runs from CI via **Azure 2.Deploy** (manual) and is torn dow
 **Azure 3.Destroy** (manual). `terraform apply` is idempotent: if a run fails partway,
 run it again and it continues from where it stopped.
 
-> The old VM-based design (`main.tf`, `variables.tf`, `nw/`, `fw/`, `vmss/`) has been
-> moved to [`legacy/`](legacy) and is not part of this root.
-
 ## Architecture
 
 | Layer | Resource |
@@ -120,9 +117,10 @@ terraform apply
 ```
 
 Or run **Azure 2.Deploy** from the Actions tab. After apply, Terraform pushes the
-nameserver delegation to the registrar and Front Door issues managed certificates for the
-four custom domains once delegation propagates. Access is locked to
-`ALLOWLIST_CIDR`.
+nameserver delegation to the registrar, and cert-manager issues a Let's Encrypt
+certificate for each of the four hosts over DNS-01 once delegation propagates; AGIC then
+serves them on the App Gateway's HTTPS listeners. Access is locked to `ALLOWLIST_CIDR`
+at both the App Gateway WAF and the subnet NSG.
 
 ## Teardown
 
@@ -130,8 +128,9 @@ Run **Azure 3.Destroy** (type the subscription id to confirm), or `terraform des
 locally. Destroy deletes everything Terraform manages **plus** the billing resources it
 does not track — the AKS node resource group (`MC_*`) and its dynamically-provisioned
 PVC managed disks — so nothing keeps costing afterward. The `mockten-tfstate-rg` backend
-is intentionally preserved. `keep_dns_zone: true` keeps the DNS zone + delegation to skip
-re-delegation on the next apply.
+is intentionally preserved; everything else, including the DNS zone, is removed. The
+workflow's only input is the confirmation value, so a teardown is always a full one — the
+next apply re-creates the zone and re-pushes the nameserver delegation.
 
 ## Region / SKU notes (Azure free-trial gotchas)
 

@@ -91,7 +91,7 @@ aws iam create-access-key --user-name mockten-deployer
 Terraform reads everything from `TF_VAR_*` (never a committed tfvars), and the AWS SDK
 reads `AWS_*` for credentials. Locally the repo `.env` (gitignored) supplies them; in CI
 they come from GitHub secrets. AWS uses ACM for TLS, so there is **no** `LETSENCRYPT_EMAIL`
-or `acme_staging` (unlike gcp/azure).
+(unlike gcp/azure, which issue certificates with cert-manager).
 
 | Variable | Notes |
 |---|---|
@@ -167,17 +167,13 @@ Run **AWS 3.Destroy** (type the account id to confirm), or `terraform destroy` l
 Destroy deletes everything Terraform manages **plus** the billing resources the Load
 Balancer Controller creates out-of-band (the ALB, its target groups and security group) and
 any orphaned CSI-provisioned EBS volumes, so nothing keeps costing afterward. The
-`mockten-tfstate-*` bucket and the `mockten-tflock` table are intentionally preserved.
-`keep_dns_zone: true` keeps the Route53 zone + delegation to skip re-delegation on the next
-apply. Deleting the CloudFront distribution takes ~15 min (it is disabled, then removed) —
-that is normal.
+`mockten-tfstate-*` bucket and the `mockten-tflock` table are intentionally preserved;
+everything else, including the Route53 zone, is removed. Deleting the CloudFront
+distribution takes ~15 min (it is disabled, then removed) — that is normal.
 
-**For a repeated 0→1→0 cycle, destroy with `keep_dns_zone: true`.** A hosted zone is ~\$0.50/mo
-(not a compute cost), and keeping it means the next Deploy reuses the same nameservers, so
-**ACM validation completes in seconds** instead of waiting for a fresh registrar delegation
-to propagate (which can take many minutes and, if slow, times the apply out). A full wipe
-including the zone is fine too — just expect the first redeploy's ACM step to wait on
-propagation.
+The workflow's only input is the confirmation value, so a teardown is always a full one.
+On the next Deploy the zone is re-created and the nameserver delegation is pushed again,
+so expect that run's ACM validation to wait on registrar propagation (usually minutes).
 
 ## EKS / free-tier gotchas
 
@@ -188,8 +184,8 @@ credit). Keep environments short-lived and destroy promptly.
 
 - **Free-tier accounts block paid instance types.** A new AWS Free-plan account refuses
   non free-tier-eligible EC2 types ("InvalidParameterCombination: not eligible for Free
-  Tier"). The node group uses `m7i-flex.large` (2 vCPU / 8 GiB, free-tier-eligible) × 2 —
-  the D2s_v7 × 2 equivalent — for this reason.
+  Tier"). The node group uses `m7i-flex.large` (2 vCPU / 8 GiB, free-tier-eligible) × 2
+  for this reason.
 - **EBS CSI needs its own IRSA role.** Managed nodes launch with IMDS hop limit 1, so the
   CSI controller pod can't reach IMDS and the addon hangs in CREATING. It is given a
   dedicated OIDC-trust role for `kube-system:ebs-csi-controller-sa` (passing the node role

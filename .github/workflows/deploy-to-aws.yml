@@ -6,7 +6,7 @@ name: AWS 2.Deploy
 # again — already-created resources are skipped and it continues.
 #
 # AWS is cloud-native: ALB (AWS Load Balancer Controller) + ACM + CloudFront/WAF,
-# not ingress-nginx/cert-manager. So there is no LETSENCRYPT_EMAIL / acme_staging.
+# not ingress-nginx/cert-manager. So there is no LETSENCRYPT_EMAIL.
 # Required repository secrets: see dry-run-aws.yml's header.
 
 on:
